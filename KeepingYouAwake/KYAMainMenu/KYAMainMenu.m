@@ -42,12 +42,12 @@ NSMenu *KYACreateMainMenuWithActivationDurationsSubMenu(NSMenu *activationDurati
     coffee.toolTip = @"Uses caffeinate while this app is running. Closing the lid still follows the Mac's sleep policy.";
     [modeMenu addItem:coffee];
 
-    Auto redBull = [[NSMenuItem alloc] initWithTitle:@"Red Bull — Keep Running with Lid Closed…"
+    Auto redBull = [[NSMenuItem alloc] initWithTitle:@"Red Bull — Keep Running with Lid Closed"
                                             action:@selector(selectRedBullMode:)
                                      keyEquivalent:@""];
     redBull.target = wakeModeTarget;
     redBull.tag = KYAMainMenuItemTagRedBull;
-    redBull.toolTip = @"Requires administrator authorization. Disables lid and manual sleep systemwide, including on battery, until stopped.";
+    redBull.toolTip = @"One-time helper setup requires administrator approval. Toggles afterward do not ask. Disables lid and manual sleep on battery and power until stopped.";
     [modeMenu addItem:redBull];
 
     Auto wakeMode = [[NSMenuItem alloc] initWithTitle:@"Wake Mode"

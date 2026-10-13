@@ -12,8 +12,8 @@ if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]
 fi
 compiler="$(/usr/bin/xcrun --find clang)"
 sdk_path="$(/usr/bin/xcrun --sdk macosx --show-sdk-path)"
-"$compiler" -fobjc-arc -isysroot "$sdk_path" \
-  -framework Foundation -framework AppKit \
-  "$repo_root/tests/watchdog_script.m" -o "$test_build_dir/watchdog-script"
+"$compiler" -fobjc-arc -isysroot "$sdk_path" -mmacosx-version-min=12.0 \
+  -framework Foundation -framework Security -lbsm \
+  "$repo_root/Helper/CoffeeBullHelper.m" -o "$test_build_dir/sleep-helper"
 
-python3 "$repo_root/tests/test_watchdog.py" "$test_build_dir/watchdog-script"
+"$test_build_dir/sleep-helper" --self-test

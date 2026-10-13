@@ -1,144 +1,71 @@
-//
-//  KYAClosedLidSession.m
-//  KeepingYouAwake
-//
-
 #import "KYAClosedLidSession.h"
 #import <AppKit/AppKit.h>
+#import <Security/Security.h>
+#import <sys/socket.h>
+#import <sys/un.h>
 #import <unistd.h>
+#import <errno.h>
+#import <fcntl.h>
+#import <poll.h>
+#import <math.h>
+#import <string.h>
 
-NS_ASSUME_NONNULL_BEGIN
+#if __has_include("KYAHelperBuildIdentity.h")
+#import "KYAHelperBuildIdentity.h"
+#else
+#define COFFEEBULL_HELPER_SHA256 @""
+#endif
 
 NSErrorDomain const KYAClosedLidSessionErrorDomain = @"KYAClosedLidSessionErrorDomain";
+static NSString * const KYAHelperLabel = @"app.byrvr.CoffeeBull.Helper";
+static NSString * const KYAHelperSocket = @"/Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.sock";
 
-typedef NS_ENUM(NSInteger, KYAClosedLidSessionErrorCode) {
-    KYAClosedLidSessionErrorLaunch = 1,
-    KYAClosedLidSessionErrorAuthentication,
-    KYAClosedLidSessionErrorWatchdog,
-    KYAClosedLidSessionErrorCleanup
+typedef NS_ENUM(NSInteger, KYAHelperError) {
+    KYAHelperUnavailable = 1,
+    KYAHelperUnauthorized,
+    KYAHelperOperationFailed,
+    KYAHelperSetupFailed
 };
 
-static NSError *KYASessionError(KYAClosedLidSessionErrorCode code, NSString *description)
+static NSError *KYAHelperMakeError(KYAHelperError code, NSString *message)
 {
-    return [NSError errorWithDomain:KYAClosedLidSessionErrorDomain
-                              code:code
-                          userInfo:@{ NSLocalizedDescriptionKey: description }];
+    return [NSError errorWithDomain:KYAClosedLidSessionErrorDomain code:code
+                          userInfo:@{NSLocalizedDescriptionKey: message}];
 }
 
-static NSString *KYAShellQuotedString(NSString *string)
+static NSString *KYAShellQuote(NSString *value)
 {
-    return [NSString stringWithFormat:@"'%@'", [string stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"]];
+    return [NSString stringWithFormat:@"'%@'", [value stringByReplacingOccurrencesOfString:@"'" withString:@"'\\''"]];
 }
 
-static NSString *KYAAppleScriptQuotedString(NSString *string)
+static NSString *KYAAppleScriptQuote(NSString *value)
 {
-    NSString *escaped = [string stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
-    escaped = [escaped stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
-    escaped = [escaped stringByReplacingOccurrencesOfString:@"\r" withString:@"\\r"];
-    escaped = [escaped stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"];
-    return [NSString stringWithFormat:@"\"%@\"", escaped];
+    value = [value stringByReplacingOccurrencesOfString:@"\\" withString:@"\\\\"];
+    value = [value stringByReplacingOccurrencesOfString:@"\"" withString:@"\\\""];
+    value = [value stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"];
+    return [NSString stringWithFormat:@"\"%@\"", value];
 }
 
-/// The only interpolated values are a validated positive PID and a shell-quoted
-/// process identity. No app-controlled executable, file, or command is run as
-/// root. mktemp creates the acknowledgement directory as root, so the app can
-/// read it but cannot replace its contents or redirect privileged writes.
-static NSString *KYAPrivilegedLauncherScript(pid_t leasePID, NSString *leaseIdentity)
+static NSString *KYACurrentCodeHash(void)
 {
-    NSCParameterAssert(leasePID > 0);
-    NSCParameterAssert(leaseIdentity.length > 0);
-
-    return [NSString stringWithFormat:
-        @"PATH=/usr/bin:/bin:/usr/sbin:/sbin\n"
-         "export PATH\n"
-         "LC_ALL=C\n"
-         "export LC_ALL\n"
-         "umask 022\n"
-         "lease_pid=%d\n"
-         "lease_identity=%@\n"
-         "lease_is_live() {\n"
-         "  current_identity=$(/bin/ps -ww -p \"$lease_pid\" -o pid= -o ppid= -o uid= -o lstart= -o command= 2>/dev/null) || return 1\n"
-         "  [ \"$current_identity\" = \"$lease_identity\" ]\n"
-         "}\n"
-         "lease_is_live || exit 70\n"
-         "status_dir=$(/usr/bin/mktemp -d /private/tmp/keepingyouawake-redbull.XXXXXXXX) || exit 71\n"
-         "/bin/chmod 755 \"$status_dir\" || { /bin/rmdir \"$status_dir\"; exit 71; }\n"
-         "lock_dir=/private/tmp/keepingyouawake-redbull.lock\n"
-         "/bin/mkdir -m 755 \"$lock_dir\" 2>/dev/null || { /bin/rmdir \"$status_dir\"; exit 77; }\n"
-         "setup_lock_owned=1\n"
-         "setup_cleanup() {\n"
-         "  if [ \"$setup_lock_owned\" = 1 ]; then /bin/rmdir \"$status_dir\" \"$lock_dir\" 2>/dev/null || :; fi\n"
-         "}\n"
-         "trap setup_cleanup 0\n"
-         "watch_lease() {\n"
-         "  owns_override=0\n"
-         "  monitor_pid=\n"
-         "  cleanup() {\n"
-         "    trap - 0 1 2 15\n"
-         "    restored=1\n"
-         "    if [ \"$owns_override\" = 1 ]; then\n"
-         "      restored=0\n"
-         "      attempt=0\n"
-         "      while [ \"$attempt\" -lt 5 ]; do\n"
-         "        if /usr/bin/pmset -a disablesleep 0; then restored=1; break; fi\n"
-         "        attempt=$((attempt + 1))\n"
-         "        /bin/sleep 1\n"
-         "      done\n"
-         "    fi\n"
-         "    if [ -n \"$monitor_pid\" ]; then\n"
-         "      # A job reference cannot signal a recycled, unrelated PID.\n"
-         "      kill %%1 2>/dev/null || :\n"
-         "      wait \"$monitor_pid\" 2>/dev/null || :\n"
-         "    fi\n"
-         "    if [ \"$restored\" = 1 ]; then\n"
-         "      /bin/rmdir \"$lock_dir\" 2>/dev/null || :\n"
-         "      /bin/rm -rf -- \"$status_dir\"\n"
-         "    else\n"
-         "      /usr/bin/printf 'Normal sleep could not be restored.\\n' > \"$status_dir/cleanup-failed\"\n"
-         "      /usr/bin/logger -t KeepingYouAwake 'Red Bull watchdog could not restore normal sleep.'\n"
-         "    fi\n"
-         "  }\n"
-         "  trap cleanup 0\n"
-         "  trap 'exit 74' 1 2 15\n"
-         "  lease_is_live || exit 70\n"
-         "  /usr/bin/caffeinate -i -w \"$lease_pid\" &\n"
-         "  monitor_pid=$!\n"
-         "  # caffeinate binds a kernel process-exit event to this lease.\n"
-         "  # Recheck identity after starting it, before changing sleep policy.\n"
-         "  lease_is_live || exit 70\n"
-         "  /bin/kill -0 \"$monitor_pid\" 2>/dev/null || exit 72\n"
-         "  owns_override=1\n"
-         "  /usr/bin/pmset -a disablesleep 1 || exit 73\n"
-         "  lease_is_live || exit 70\n"
-         "  /bin/kill -0 \"$monitor_pid\" 2>/dev/null || exit 72\n"
-         "  /usr/bin/printf 'ready\\n' > \"$status_dir/ready\" || exit 73\n"
-         "  wait \"$monitor_pid\"\n"
-         "  monitor_pid=\n"
-         "  exit 0\n"
-         "}\n"
-         "watch_lease </dev/null >/dev/null 2>&1 &\n"
-         "watchdog_pid=$!\n"
-         "setup_lock_owned=0\n"
-         "attempt=0\n"
-         "while [ \"$attempt\" -lt 100 ]; do\n"
-         "  if [ -f \"$status_dir/ready\" ] && /bin/kill -0 \"$watchdog_pid\" 2>/dev/null; then\n"
-         "    /usr/bin/printf 'KYA_READY %%s %%s\\n' \"$watchdog_pid\" \"$status_dir\"\n"
-         "    exit 0\n"
-         "  fi\n"
-         "  /bin/kill -0 \"$watchdog_pid\" 2>/dev/null || { wait \"$watchdog_pid\"; exit 75; }\n"
-         "  attempt=$((attempt + 1))\n"
-         "  /bin/sleep 0.1\n"
-         "done\n"
-         "kill %%1 2>/dev/null || :\n"
-         "wait \"$watchdog_pid\" 2>/dev/null || :\n"
-         "exit 76\n",
-        leasePID, KYAShellQuotedString(leaseIdentity)];
+    SecCodeRef code = NULL;
+    CFDictionaryRef information = NULL;
+    if(SecCodeCopySelf(kSecCSDefaultFlags, &code) != errSecSuccess) { return nil; }
+    OSStatus result = SecCodeCopySigningInformation(code, kSecCSSigningInformation, &information);
+    CFRelease(code);
+    if(result != errSecSuccess) { return nil; }
+    NSDictionary *details = CFBridgingRelease(information);
+    NSData *hash = details[(__bridge NSString *)kSecCodeInfoUnique];
+    if(![hash isKindOfClass:NSData.class] || hash.length != 20) { return nil; }
+    const unsigned char *bytes = hash.bytes;
+    NSMutableString *hex = [NSMutableString new];
+    for(NSUInteger i = 0; i < hash.length; i++) { [hex appendFormat:@"%02x", bytes[i]]; }
+    return hex;
 }
 
 @interface KYAClosedLidSession ()
-@property (nonatomic, nullable) NSTask *lease;
-@property (nonatomic, nullable) NSString *statusDirectory;
 @property (nonatomic, readwrite, nullable) NSError *lastCleanupError;
+@property (nonatomic) BOOL ownsSession;
 @end
 
 @implementation KYAClosedLidSession
@@ -148,10 +75,8 @@ static NSString *KYAPrivilegedLauncherScript(pid_t leasePID, NSString *leaseIden
     self = [super init];
     if(self)
     {
-        [NSNotificationCenter.defaultCenter addObserver:self
-                                               selector:@selector(applicationWillTerminate:)
-                                                   name:NSApplicationWillTerminateNotification
-                                                 object:nil];
+        [NSNotificationCenter.defaultCenter addObserver:self selector:@selector(applicationWillTerminate:)
+                                                   name:NSApplicationWillTerminateNotification object:nil];
     }
     return self;
 }
@@ -162,164 +87,239 @@ static NSString *KYAPrivilegedLauncherScript(pid_t leasePID, NSString *leaseIden
     [self endSession];
 }
 
-- (BOOL)active
+- (NSDictionary *)request:(NSString *)command error:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
-    return self.lease.isRunning && self.statusDirectory != nil &&
-        [NSFileManager.defaultManager fileExistsAtPath:[self.statusDirectory stringByAppendingPathComponent:@"ready"]] &&
-        ![NSFileManager.defaultManager fileExistsAtPath:[self.statusDirectory stringByAppendingPathComponent:@"cleanup-failed"]];
+    return [self request:command timeout:8 error:error];
 }
 
-- (BOOL)beginSessionWithError:(NSError * _Nullable * _Nullable)error
+- (NSDictionary *)request:(NSString *)command timeout:(NSTimeInterval)seconds error:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
-    NSAssert(NSThread.isMainThread, @"Closed-lid sessions must be controlled on the main thread.");
-    if(error != NULL) { *error = nil; }
-    if(self.active) { return YES; }
-
-    // A prior watchdog must finish its reset before a new one can take over;
-    // otherwise late cleanup could disable a newly started session.
-    [self endSession];
-    if(self.statusDirectory != nil)
+    NSTimeInterval deadline = NSProcessInfo.processInfo.systemUptime + seconds;
+    BOOL previouslyOwned = self.ownsSession;
+    int descriptor = socket(AF_UNIX, SOCK_STREAM, 0);
+    if(descriptor < 0)
     {
-        if(error != NULL)
-        {
-            *error = self.lastCleanupError ?: KYASessionError(KYAClosedLidSessionErrorCleanup, @"Normal sleep has not yet been restored from the previous Red Bull session. Try again in a moment.");
-        }
+        if(error) { *error = KYAHelperMakeError(KYAHelperUnavailable, @"CoffeeBull's sleep helper is not available."); }
+        return nil;
+    }
+    struct timeval timeout = {(time_t)seconds, (suseconds_t)((seconds - floor(seconds)) * 1000000)};
+    setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(descriptor, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+    int noSignal = 1;
+    setsockopt(descriptor, SOL_SOCKET, SO_NOSIGPIPE, &noSignal, sizeof(noSignal));
+    struct sockaddr_un address = {0};
+    address.sun_family = AF_UNIX;
+    strlcpy(address.sun_path, KYAHelperSocket.fileSystemRepresentation, sizeof(address.sun_path));
+    int flags = fcntl(descriptor, F_GETFL, 0);
+    fcntl(descriptor, F_SETFL, flags | O_NONBLOCK);
+    int connected = connect(descriptor, (struct sockaddr *)&address, sizeof(address));
+    int connectionError = connected == 0 ? 0 : errno;
+    if(connectionError == EINPROGRESS || connectionError == EAGAIN)
+    {
+        struct pollfd waiter = {descriptor, POLLOUT, 0};
+        int ready = poll(&waiter, 1, (int)ceil(seconds * 1000));
+        socklen_t length = sizeof(connectionError);
+        if(ready <= 0 || getsockopt(descriptor, SOL_SOCKET, SO_ERROR, &connectionError, &length) != 0) { connectionError = ETIMEDOUT; }
+    }
+    fcntl(descriptor, F_SETFL, flags);
+    if(connectionError != 0)
+    {
+        close(descriptor);
+        KYAHelperError code = (connectionError == ENOENT || connectionError == ECONNREFUSED) ? KYAHelperUnavailable : KYAHelperOperationFailed;
+        if(error) { *error = KYAHelperMakeError(code, code == KYAHelperUnavailable ? @"CoffeeBull needs its one-time sleep helper setup." : @"The sleep helper connection timed out. Try again."); }
+        return nil;
+    }
+    uid_t peerUID;
+    gid_t peerGID;
+    if(getpeereid(descriptor, &peerUID, &peerGID) != 0 || peerUID != 0)
+    {
+        close(descriptor);
+        if(error) { *error = KYAHelperMakeError(KYAHelperOperationFailed, @"The sleep helper's identity could not be verified."); }
+        return nil;
+    }
+    NSData *request = [[command stringByAppendingString:@"\n"] dataUsingEncoding:NSUTF8StringEncoding];
+    const uint8_t *requestBytes = request.bytes;
+    NSUInteger sent = 0;
+    while(sent < request.length && NSProcessInfo.processInfo.systemUptime < deadline)
+    {
+        ssize_t count = write(descriptor, requestBytes + sent, request.length - sent);
+        if(count < 0 && errno == EINTR) { continue; }
+        if(count <= 0) { break; }
+        sent += (NSUInteger)count;
+    }
+    if(sent == request.length && [command isEqual:@"ON"]) { self.ownsSession = YES; }
+    NSMutableData *response = [NSMutableData new];
+    unsigned char buffer[512];
+    // A helper pinned to an older build may reject and close before our write.
+    // Read its response even after EPIPE so renewal can recognize that rejection.
+    while(response.length < 8192)
+    {
+        NSTimeInterval remaining = deadline - NSProcessInfo.processInfo.systemUptime;
+        if(remaining <= 0) { break; }
+        timeout.tv_sec = (time_t)remaining;
+        timeout.tv_usec = (suseconds_t)((remaining - floor(remaining)) * 1000000);
+        setsockopt(descriptor, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+        ssize_t count = read(descriptor, buffer, sizeof(buffer));
+        if(count < 0 && errno == EINTR) { continue; }
+        if(count <= 0) { break; }
+        [response appendBytes:buffer length:(NSUInteger)count];
+        if(memchr(buffer, '\n', (size_t)count)) { break; }
+    }
+    close(descriptor);
+    id payload = response.length ? [NSJSONSerialization JSONObjectWithData:response options:0 error:nil] : nil;
+    if(![payload isKindOfClass:NSDictionary.class] ||
+       ![payload[@"protocol"] isKindOfClass:NSNumber.class] || [payload[@"protocol"] integerValue] != 2 ||
+       ![payload[@"ok"] isKindOfClass:NSNumber.class] ||
+       ![payload[@"active"] isKindOfClass:NSNumber.class] ||
+       ![payload[@"owner_pid"] isKindOfClass:NSNumber.class])
+    {
+        if(error) { *error = KYAHelperMakeError(KYAHelperOperationFailed, @"The sleep helper did not return a valid response."); }
+        return nil;
+    }
+    if(![payload[@"ok"] boolValue])
+    {
+        NSString *reason = [payload[@"error"] isKindOfClass:NSString.class] ? payload[@"error"] : @"The sleep helper could not complete this request.";
+        NSString *kind = payload[@"error_code"];
+        if(!previouslyOwned && ([kind isEqual:@"unauthorized"] || [kind isEqual:@"ownership"] || [kind isEqual:@"protocol"])) { self.ownsSession = NO; }
+        KYAHelperError code = [kind isEqual:@"unauthorized"] ? KYAHelperUnauthorized : KYAHelperOperationFailed;
+        if(error) { *error = KYAHelperMakeError(code, reason); }
+        return nil;
+    }
+    return payload;
+}
+
+- (BOOL)active
+{
+    if(!self.ownsSession) { return NO; }
+    NSDictionary *response = [self request:@"STATUS" error:nil];
+    return [response[@"active"] boolValue] && [response[@"owner_pid"] intValue] == getpid();
+}
+
+- (BOOL)setupHelperWithError:(NSError * _Nullable __autoreleasing * _Nullable)error
+{
+    NSString *codeHash = KYACurrentCodeHash();
+    NSString *helper = [NSBundle.mainBundle pathForResource:@"CoffeeBullHelper" ofType:nil];
+    if(codeHash.length != 40 || COFFEEBULL_HELPER_SHA256.length != 64 || helper == nil)
+    {
+        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"This build is missing its signed sleep helper. Build CoffeeBull with scripts/build-local.sh."); }
         return NO;
     }
-
-    pid_t appPID = getpid();
-    if(appPID <= 0)
+    if(![NSBundle.mainBundle.bundlePath isEqual:@"/Applications/CoffeeBull.app"])
     {
-        if(error != NULL) { *error = KYASessionError(KYAClosedLidSessionErrorLaunch, @"Could not identify this app's process."); }
+        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"Install CoffeeBull in Applications before setting up Red Bull."); }
         return NO;
     }
-
-    NSTask *lease = [NSTask new];
-    lease.executableURL = [NSURL fileURLWithPath:@"/usr/bin/caffeinate"];
-    lease.arguments = @[@"-i", @"-w", [NSString stringWithFormat:@"%d", appPID]];
-    lease.standardInput = NSFileHandle.fileHandleWithNullDevice;
-    lease.standardOutput = NSFileHandle.fileHandleWithNullDevice;
-    lease.standardError = NSFileHandle.fileHandleWithNullDevice;
-
-    NSError *launchError = nil;
-    if(![lease launchAndReturnError:&launchError])
-    {
-        if(error != NULL) { *error = launchError ?: KYASessionError(KYAClosedLidSessionErrorLaunch, @"Could not start the Red Bull session lease."); }
-        return NO;
-    }
-    self.lease = lease;
-
-    NSString *identity = [self processIdentityForLease:lease error:&launchError];
-    if(identity.length == 0 || !lease.isRunning)
-    {
-        [self endSession];
-        if(error != NULL) { *error = launchError ?: KYASessionError(KYAClosedLidSessionErrorLaunch, @"The Red Bull session lease exited before it could be authenticated."); }
-        return NO;
-    }
-
-    NSString *launcher = KYAPrivilegedLauncherScript(lease.processIdentifier, identity);
-    NSString *command = [@"/usr/bin/env -i /bin/sh -c " stringByAppendingString:KYAShellQuotedString(launcher)];
-    NSString *source = [NSString stringWithFormat:@"do shell script %@ with administrator privileges", KYAAppleScriptQuotedString(command)];
-    NSAppleScript *script = [[NSAppleScript alloc] initWithSource:source];
+    NSDictionary *definition = @{
+        @"Label": KYAHelperLabel,
+        @"ProgramArguments": @[@"/Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.Helper", @"--uid", [NSString stringWithFormat:@"%u", getuid()], @"--cdhash", codeHash],
+        @"RunAtLoad": @YES, @"KeepAlive": @YES, @"ThrottleInterval": @5,
+        @"ProcessType": @"Background", @"ExitTimeOut": @15
+    };
+    NSData *plistData = [NSPropertyListSerialization dataWithPropertyList:definition format:NSPropertyListXMLFormat_v1_0 options:0 error:error];
+    if(plistData == nil) { return NO; }
+    NSString *plist = [[NSString alloc] initWithData:plistData encoding:NSUTF8StringEncoding];
+    NSString *launcher = [NSString stringWithFormat:
+        @"set -eu\n"
+         "PATH=/usr/bin:/bin:/usr/sbin:/sbin\nexport PATH\numask 022\n"
+         "tools=/Library/PrivilegedHelperTools\n"
+         "daemons=/Library/LaunchDaemons\n"
+         "target=$tools/app.byrvr.CoffeeBull.Helper\n"
+         "plist=$daemons/app.byrvr.CoffeeBull.Helper.plist\n"
+         "for directory in \"$tools\" \"$daemons\"; do\n"
+         "  [ ! -L \"$directory\" ] || exit 80\n"
+         "  /bin/mkdir -p \"$directory\"\n"
+         "  [ \"$(/usr/bin/stat -f %%u \"$directory\")\" = 0 ] || exit 80\n"
+         "  permissions=$(/usr/bin/stat -f %%Lp \"$directory\")\n"
+         "  [ $((0$permissions & 0022)) -eq 0 ] || exit 80\n"
+         "done\n"
+         "[ ! -L \"$target\" ] && [ ! -L \"$plist\" ] || exit 80\n"
+         "stage=$(/usr/bin/mktemp -d \"$tools/.coffeebull-install.XXXXXXXX\")\n"
+         "trap '/bin/rm -rf -- \"$stage\"' EXIT\n"
+         "/usr/bin/install -o root -g wheel -m 755 %@ \"$stage/helper\"\n"
+         "digest=$(/usr/bin/shasum -a 256 \"$stage/helper\" | /usr/bin/awk '{print $1}')\n"
+         "[ \"$digest\" = %@ ] || exit 81\n"
+         "/usr/bin/printf %%s %@ > \"$stage/daemon.plist\"\n"
+         "/usr/bin/plutil -lint \"$stage/daemon.plist\" >/dev/null\n"
+         "/usr/sbin/chown root:wheel \"$stage/daemon.plist\"\n"
+         "/bin/chmod 644 \"$stage/daemon.plist\"\n"
+         "/bin/launchctl bootout system/app.byrvr.CoffeeBull.Helper >/dev/null 2>&1 || :\n"
+         "/bin/mv -f \"$stage/helper\" \"$target\"\n"
+         "/bin/mv -f \"$stage/daemon.plist\" \"$plist\"\n"
+         "/bin/launchctl bootstrap system \"$plist\"\n",
+        KYAShellQuote(helper), KYAShellQuote(COFFEEBULL_HELPER_SHA256), KYAShellQuote(plist)];
+    NSString *command = [@"/usr/bin/env -i /bin/sh -c " stringByAppendingString:KYAShellQuote(launcher)];
+    NSString *source = [NSString stringWithFormat:@"do shell script %@ with administrator privileges", KYAAppleScriptQuote(command)];
     NSDictionary *scriptError = nil;
-    NSAppleEventDescriptor *result = [script executeAndReturnError:&scriptError];
-
-    NSString *receipt = [result.stringValue stringByTrimmingCharactersInSet:NSCharacterSet.whitespaceAndNewlineCharacterSet];
-    NSArray<NSString *> *parts = [receipt componentsSeparatedByString:@" "];
-    BOOL receiptValid = (parts.count == 3 && [parts[0] isEqualToString:@"KYA_READY"]);
-    if(receiptValid)
+    NSAppleEventDescriptor *result = [[[NSAppleScript alloc] initWithSource:source] executeAndReturnError:&scriptError];
+    if(result == nil)
     {
-        NSCharacterSet *nonDigits = NSCharacterSet.decimalDigitCharacterSet.invertedSet;
-        NSString *directory = parts[2];
-        NSString *suffix = [directory stringByReplacingOccurrencesOfString:@"/private/tmp/keepingyouawake-redbull." withString:@""];
-        NSCharacterSet *nonSuffixCharacters = [NSCharacterSet characterSetWithCharactersInString:@"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"].invertedSet;
-        receiptValid = (parts[1].length > 0 && [parts[1] rangeOfCharacterFromSet:nonDigits].location == NSNotFound &&
-                        parts[1].longLongValue > 0 && [directory hasPrefix:@"/private/tmp/keepingyouawake-redbull."] &&
-                        suffix.length == 8 && [suffix rangeOfCharacterFromSet:nonSuffixCharacters].location == NSNotFound);
-        if(receiptValid) { self.statusDirectory = directory; }
-    }
-
-    if(result == nil || !receiptValid || !self.active)
-    {
-        [self endSession];
-        if(error != NULL)
+        if(error)
         {
-            NSInteger scriptCode = [scriptError[NSAppleScriptErrorNumber] integerValue];
-            if(scriptCode == -128)
+            if([scriptError[NSAppleScriptErrorNumber] integerValue] == -128)
             {
                 *error = [NSError errorWithDomain:NSCocoaErrorDomain code:NSUserCancelledError userInfo:nil];
             }
             else
             {
-                NSString *description = scriptCode == 77 ? @"Another Red Bull session is active, or a previous session has not finished restoring normal sleep." : scriptError[NSAppleScriptErrorMessage];
-                if(description.length == 0) { description = @"The privileged watchdog could not confirm that Red Bull mode was activated."; }
-                *error = KYASessionError(result == nil ? KYAClosedLidSessionErrorAuthentication : KYAClosedLidSessionErrorWatchdog, description);
+                *error = KYAHelperMakeError(KYAHelperSetupFailed, scriptError[NSAppleScriptErrorMessage] ?: @"The one-time sleep helper setup failed.");
             }
         }
         return NO;
     }
-
-    return YES;
+    NSTimeInterval setupDeadline = NSProcessInfo.processInfo.systemUptime + 8;
+    while(NSProcessInfo.processInfo.systemUptime < setupDeadline)
+    {
+        NSTimeInterval remaining = setupDeadline - NSProcessInfo.processInfo.systemUptime;
+        if([self request:@"STATUS" timeout:MIN(0.2, remaining) error:nil] != nil) { return YES; }
+        [NSThread sleepForTimeInterval:0.1];
+    }
+    if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"The sleep helper was installed but has not started. Try Red Bull again."); }
+    return NO;
 }
 
-- (nullable NSString *)processIdentityForLease:(NSTask *)lease error:(NSError * _Nullable * _Nullable)error
+- (BOOL)beginSessionWithError:(NSError * _Nullable __autoreleasing * _Nullable)error
 {
-    if(lease.processIdentifier <= 0) { return nil; }
-
-    NSTask *task = [NSTask new];
-    task.executableURL = [NSURL fileURLWithPath:@"/bin/ps"];
-    task.arguments = @[@"-ww", @"-p", [NSString stringWithFormat:@"%d", lease.processIdentifier],
-                       @"-o", @"pid=", @"-o", @"ppid=", @"-o", @"uid=", @"-o", @"lstart=", @"-o", @"command="];
-    NSMutableDictionary<NSString *, NSString *> *environment = [NSProcessInfo.processInfo.environment mutableCopy];
-    environment[@"LC_ALL"] = @"C";
-    task.environment = environment;
-    NSPipe *pipe = [NSPipe pipe];
-    task.standardOutput = pipe;
-    task.standardError = NSFileHandle.fileHandleWithNullDevice;
-    if(![task launchAndReturnError:error]) { return nil; }
-
-    NSData *data = [pipe.fileHandleForReading readDataToEndOfFile];
-    [task waitUntilExit];
-    if(task.terminationStatus != 0) { return nil; }
-    NSString *identity = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-    // Shell command substitution strips trailing newlines, but not leading
-    // whitespace. Match that behavior precisely for the watchdog comparison.
-    return [identity stringByTrimmingCharactersInSet:NSCharacterSet.newlineCharacterSet];
+    NSAssert(NSThread.isMainThread, @"Control Red Bull on the main thread.");
+    if(error) { *error = nil; }
+    if(self.ownsSession && self.lastCleanupError != nil)
+    {
+        [self endSession];
+        if(self.ownsSession)
+        {
+            if(error) { *error = self.lastCleanupError; }
+            return NO;
+        }
+    }
+    self.lastCleanupError = nil;
+    NSError *requestError = nil;
+    NSDictionary *response = [self request:@"ON" error:&requestError];
+    if(response == nil && (requestError.code == KYAHelperUnavailable || requestError.code == KYAHelperUnauthorized))
+    {
+        if(![self setupHelperWithError:error]) { [self endSession]; return NO; }
+        response = [self request:@"ON" error:&requestError];
+    }
+    if(![response[@"active"] boolValue] || [response[@"owner_pid"] intValue] != getpid())
+    {
+        [self endSession];
+        if(error) { *error = self.lastCleanupError ?: requestError ?: KYAHelperMakeError(KYAHelperOperationFailed, @"Red Bull could not confirm its sleep override."); }
+        return NO;
+    }
+    self.ownsSession = YES;
+    return YES;
 }
 
 - (void)endSession
 {
+    if(!self.ownsSession) { return; }
+    NSError *error = nil;
+    NSDictionary *response = [self request:@"OFF" error:&error];
+    if(response == nil || [response[@"active"] boolValue])
+    {
+        self.lastCleanupError = error ?: KYAHelperMakeError(KYAHelperOperationFailed, @"Normal sleep could not be restored. Quit CoffeeBull to release its helper lease, or run sudo pmset -a disablesleep 0 in Terminal.");
+        return;
+    }
+    self.ownsSession = NO;
     self.lastCleanupError = nil;
-    NSTask *lease = self.lease;
-    self.lease = nil;
-    if(lease.isRunning)
-    {
-        [lease terminate];
-        [lease waitUntilExit];
-    }
-
-    if(self.statusDirectory == nil) { return; }
-
-    // Do not reauthenticate for cleanup. The already-authorized root watchdog
-    // owns the reset. Retain an unacknowledged directory to prevent overlapping
-    // sessions, and allow the next begin/end call to check it again.
-    NSDate *deadline = [NSDate dateWithTimeIntervalSinceNow:6];
-    while([NSFileManager.defaultManager fileExistsAtPath:self.statusDirectory] && deadline.timeIntervalSinceNow > 0)
-    {
-        if([NSFileManager.defaultManager fileExistsAtPath:[self.statusDirectory stringByAppendingPathComponent:@"cleanup-failed"]])
-        {
-            self.lastCleanupError = KYASessionError(KYAClosedLidSessionErrorCleanup, @"Red Bull mode could not restore normal sleep. Run sudo pmset -a disablesleep 0 in Terminal to restore it.");
-            NSLog(@"%@", self.lastCleanupError.localizedDescription);
-            return;
-        }
-        [NSThread sleepForTimeInterval:0.05];
-    }
-    if(![NSFileManager.defaultManager fileExistsAtPath:self.statusDirectory]) { self.statusDirectory = nil; }
-    else
-    {
-        self.lastCleanupError = KYASessionError(KYAClosedLidSessionErrorCleanup, @"Red Bull mode is still waiting for its privileged watchdog to restore normal sleep. Try again in a moment.");
-        NSLog(@"%@", self.lastCleanupError.localizedDescription);
-    }
 }
 
 - (void)applicationWillTerminate:(NSNotification *)notification
@@ -328,5 +328,3 @@ static NSString *KYAPrivilegedLauncherScript(pid_t leasePID, NSString *leaseIden
 }
 
 @end
-
-NS_ASSUME_NONNULL_END

@@ -2,3 +2,6 @@
 xcuserdata
 build
 dist
+
+# Generated helper digest compiled into each local app build.
+KeepingYouAwake/KYAHelperBuildIdentity.h

@@ -140,7 +140,8 @@ static BOOL KYASystemSleepIsDisabled(void)
 
 - (void)selectWakeMode:(KYAWakeMode)wakeMode
 {
-    if(self.wakeMode == wakeMode && [self.sleepWakeTimer isScheduled])
+    if(self.wakeMode == wakeMode && [self.sleepWakeTimer isScheduled] &&
+       (wakeMode == KYAWakeModeCoffee || self.closedLidSession.active))
     {
         return;
     }
@@ -183,7 +184,8 @@ static BOOL KYASystemSleepIsDisabled(void)
 
 - (void)updateWakeModeAppearance
 {
-    BOOL active = [self.sleepWakeTimer isScheduled];
+    BOOL active = [self.sleepWakeTimer isScheduled] &&
+        (self.wakeMode == KYAWakeModeCoffee || self.closedLidSession.active);
     Auto modeName = self.wakeMode == KYAWakeModeRedBull ? @"Red Bull" : @"Coffee";
     self.statusItemController.appearance = active ? KYAStatusItemAppearanceActive : KYAStatusItemAppearanceInactive;
     Auto statusItem = [self.menu itemWithTag:KYAMainMenuItemTagWakeStatus];
@@ -209,8 +211,8 @@ static BOOL KYASystemSleepIsDisabled(void)
     if(@available(macOS 11.0, *))
     {
         AutoVar symbolName = self.wakeMode == KYAWakeModeRedBull
-            ? (active ? @"bolt.fill" : @"bolt")
-            : (active ? @"cup.and.saucer.fill" : @"cup.and.saucer");
+            ? (active ? @"eye.circle.fill" : @"eye.slash")
+            : (active ? @"eye" : @"eye.slash");
         if(self.closedLidCleanupError != nil) { symbolName = @"exclamationmark.triangle.fill"; }
         Auto image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:modeName];
         if(image != nil)
@@ -223,7 +225,7 @@ static BOOL KYASystemSleepIsDisabled(void)
     {
         button.toolTip = active
             ? @"Red Bull active — lid and manual sleep disabled systemwide, including on battery. Click to stop."
-            : @"Red Bull selected — click to authorize keeping the Mac awake with the lid closed.";
+            : @"Red Bull selected — click to keep the Mac awake with the lid closed.";
     }
     else
     {
@@ -606,6 +608,13 @@ static BOOL KYASystemSleepIsDisabled(void)
     Auto eventHandler = KYAEventHandler.defaultHandler;
     
     AutoWeak weakSelf = self;
+    [eventHandler registerActionNamed:@"redbull" block:^(KYAEvent *event) {
+        [weakSelf selectRedBullMode:weakSelf];
+    }];
+    [eventHandler registerActionNamed:@"coffee" block:^(KYAEvent *event) {
+        [weakSelf selectCoffeeMode:weakSelf];
+    }];
+
     [eventHandler registerActionNamed:@"activate" block:^(KYAEvent *event) {
         [weakSelf handleActivateActionForEvent:event];
     }];
@@ -695,7 +704,8 @@ static BOOL KYASystemSleepIsDisabled(void)
 
 - (void)statusItemControllerShouldPerformPrimaryAction:(KYAStatusItemController *)controller
 {
-    if([self.sleepWakeTimer isScheduled])
+    if([self.sleepWakeTimer isScheduled] &&
+       (self.wakeMode == KYAWakeModeCoffee || self.closedLidSession.active))
     {
         [self terminateTimer];
     }

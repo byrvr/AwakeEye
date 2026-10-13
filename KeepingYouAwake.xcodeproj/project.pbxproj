@@ -101,7 +101,6 @@
 		DAD9834C26F8BB0500234FB8 /* KYAUpdateSettingsViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = DAD9834E26F8BB0500234FB8 /* KYAUpdateSettingsViewController.xib */; };
 		DAD9838A26F9037900234FB8 /* KYADurationSettingsViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = DAD9838C26F9037900234FB8 /* KYADurationSettingsViewController.xib */; };
 		DAD983A726F9C46600234FB8 /* KYAAddDurationViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = DAD983A926F9C46600234FB8 /* KYAAddDurationViewController.xib */; };
-		DAEF160C277C67D800EA9478 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DAEF160B277C67D800EA9478 /* Sparkle */; };
 		CB0010000000000000000001 /* KYAClosedLidSession.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0010000000000000000003 /* KYAClosedLidSession.m */; };
 		CB0010000000000000000002 /* KYAClosedLidSession.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0010000000000000000003 /* KYAClosedLidSession.m */; };
 /* End PBXBuildFile section */
@@ -280,7 +279,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				DA52096C27C6C9BD00ECFDA6 /* KYAApplicationSupport in Frameworks */,
-				DAEF160C277C67D800EA9478 /* Sparkle in Frameworks */,
 				DA51CA672BB75A0B0013175E /* KYACommon in Frameworks */,
 				DACF2FC927C2657C00856FEC /* KYAUserNotifications in Frameworks */,
 				DA25063227C248710052CCD8 /* KYADeviceInfo in Frameworks */,
@@ -602,7 +600,6 @@
 			);
 			name = "KeepingYouAwake (Direct)";
 			packageProductDependencies = (
-				DAEF160B277C67D800EA9478 /* Sparkle */,
 				DA25063127C248710052CCD8 /* KYADeviceInfo */,
 				DACF2FC827C2657C00856FEC /* KYAUserNotifications */,
 				DACF2FCA27C271B600856FEC /* KYAApplicationEvents */,
@@ -680,7 +677,6 @@
 			);
 			mainGroup = DA637B3019F14693004C8838;
 			packageReferences = (
-				DAEF160A277C67D800EA9478 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = DA637B3A19F14693004C8838 /* Products */;
 			projectDirPath = "";
@@ -1243,14 +1239,6 @@
 /* End XCConfigurationList section */
 
 /* Begin XCRemoteSwiftPackageReference section */
-		DAEF160A277C67D800EA9478 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/sparkle-project/Sparkle";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 2.0.0;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -1317,11 +1305,6 @@
 		DACF2FCC27C271BA00856FEC /* KYAApplicationEvents */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = KYAApplicationEvents;
-		};
-		DAEF160B277C67D800EA9478 /* Sparkle */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = DAEF160A277C67D800EA9478 /* XCRemoteSwiftPackageReference "Sparkle" */;
-			productName = Sparkle;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

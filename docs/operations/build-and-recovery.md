@@ -12,38 +12,40 @@ related:
 
 # Build and validation
 
-Run [`scripts/build-local.sh`](../../scripts/build-local.sh) from the repository. It builds the `KeepingYouAwake (Direct)` scheme as CoffeeBull, copies the app to `dist/`, and signs it locally. `COFFEEBULL_BUILD_DIR` and `COFFEEBULL_OUTPUT_DIR` override these paths. The app uses its own bundle identity and disables the upstream updater.
+Run [`scripts/build-local.sh`](../../scripts/build-local.sh). It compiles and signs the constrained helper, bakes its digest into the app, builds CoffeeBull, packages the helper as a resource, and locally signs the app with Hardened Runtime. `COFFEEBULL_BUILD_DIR` and `COFFEEBULL_OUTPUT_DIR` override build/export paths. The unused upstream updater is disabled and its external framework is removed.
 
-Verify a local build before enabling Red Bull:
+Install the app at `/Applications/CoffeeBull.app`. Selecting Red Bull performs one-time native administrator setup. Setup installs `/Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.Helper` and `/Library/LaunchDaemons/app.byrvr.CoffeeBull.Helper.plist`; the helper socket is `/Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.sock`. App restarts preserve setup. A rebuilt app may need approval again because this local build pins its executable hash.
 
-1. Launch the app and check the Coffee/Red Bull menu and mode icons.
-2. Start and stop Coffee and exercise a short duration.
-3. Cancel a Red Bull authentication prompt; it must remain inactive or return to an already active Coffee session.
-4. On a ventilated surface, authorize Red Bull and check `pmset -g` for `SleepDisabled 1`.
-5. Stop Red Bull and check for `SleepDisabled 0`. Repeat with a short duration and with app termination.
-6. Perform a physical lid-close test to confirm continued execution and network access on the target Mac.
+Run safe regression checks before live testing:
 
-Steps 4–6 change the live sleep policy and should be performed deliberately. Compilation and mocked watchdog tests verify code paths without changing the Mac's sleep settings.
+```sh
+./scripts/test-timer-lifetime.sh
+./scripts/test-watchdog.sh
+./scripts/test-helper-client.sh
+```
 
-Run `bash scripts/test-watchdog.sh` for the safe watchdog tests. They generate the script from the production Objective-C source, substitute mock power/process commands and temporary paths, and cover session exit, watchdog termination, identity mismatch, enable failure, activation races, concurrent-session refusal, and failed-cleanup retries. They do not request administrator access or change the Mac's sleep policy.
+Tests use mocked power operations and do not change the Mac sleep policy. For live validation, activate Red Bull once and approve setup, then stop/restart it repeatedly and after relaunching CoffeeBull. Routine toggles must not show another password dialog. Check `pmset -g` for `SleepDisabled 1` while active and `0` after stop. Test crash recovery and daemon restart, and perform a physical lid-close test on the target Mac.
 
-# Recovery
+The 0.2.0 local installation was checked on 2026-10-13: three Red Bull stop/start cycles completed without another prompt; an unapproved process was rejected; killing the app restored `SleepDisabled 0`; relaunching and activating Red Bull required no new approval; switching to Coffee restored normal sleep. A physical lid-close session and live daemon restart remain untested.
 
-If cleanup fails, CoffeeBull displays **Sleep Restore Failed** in its menu and keeps that warning visible even if Coffee continues running. Red Bull refuses to start while its previous session has not finished cleanup. Stopping or expiring a session shows the failure once; quitting logs it without interrupting shutdown.
+# Recovery and removal
 
-To recover, first quit **all CoffeeBull instances**. Then restore normal sleep:
+If the helper reports a reset failure, stop CoffeeBull and run:
 
 ```sh
 sudo pmset -a disablesleep 0
 pmset -g
 ```
 
-Confirm that `pmset -g` reports `SleepDisabled 0`. Only after all instances are stopped and normal sleep is restored, remove the empty session lock:
+The helper retains its ownership marker until it confirms reset; restarting its daemon retries recovery. The current marker is `/Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.active`. Never remove it while a lease is active.
+
+To remove the helper after quitting CoffeeBull, first restore normal sleep, then stop its daemon and remove only its own installed files:
 
 ```sh
-sudo rmdir /private/tmp/keepingyouawake-redbull.lock
+sudo pmset -a disablesleep 0
+sudo launchctl bootout system/app.byrvr.CoffeeBull.Helper
+sudo rm /Library/LaunchDaemons/app.byrvr.CoffeeBull.Helper.plist
+sudo rm /Library/PrivilegedHelperTools/app.byrvr.CoffeeBull.Helper
 ```
 
-If the lock does not exist, skip this step. `rmdir` removes only an empty directory; if it reports that the directory is not empty, leave it in place and investigate before restarting Red Bull. Do not remove the lock while any CoffeeBull instance is running. After successful recovery, reopen CoffeeBull.
-
-An external `pmset` override remains in effect while Coffee is selected. Red Bull's global override also blocks manual Sleep and applies on battery, so keep the Mac ventilated and connected to power for long sessions.
+Coffee leaves an external sleep override in effect. Red Bull takes ownership and resets the flag when its session ends. The override affects battery and charger and blocks manual Sleep; keep the running Mac ventilated.

@@ -5,13 +5,15 @@ A personal fork of [KeepingYouAwake](https://github.com/newmarcel/KeepingYouAwak
 | Mode | Behavior |
 | --- | --- |
 | **Coffee ☕** | Keeps the Mac awake during inactivity using `caffeinate`; uses the existing display and duration preferences. |
-| **Red Bull ⚡** | Also disables system sleep, including lid-close and manual Sleep, on both charger and battery. Requires native macOS administrator authentication. |
+| **Red Bull ⚡** | Also disables system sleep, including lid-close and manual Sleep, on both charger and battery. Requires one-time native macOS administrator setup; routine toggles do not prompt. |
 
-Right-click the menu-bar icon to select a mode. Selecting a mode starts it; left-click the icon to stop or restart it. Red Bull is temporary: stopping, switching to Coffee, reaching the selected duration, or quitting ends the override. A separate watchdog also restores normal sleep if the app crashes. Every launch defaults to Coffee.
+Right-click the menu-bar icon to select a mode. Selecting a mode starts it; left-click the icon to stop or restart it. Red Bull is temporary: stopping, switching to Coffee, reaching the selected duration, or quitting ends the override. A constrained helper also restores normal sleep if the app crashes or the helper restarts. Every launch defaults to Coffee.
 
 Red Bull takes ownership of the global sleep setting and resets it to normal on cleanup. **Coffee leaves any pre-existing global sleep override in place.** If sleep was already disabled using `pmset`, stop a Red Bull session or run `sudo pmset -a disablesleep 0` to restore normal sleep. Keep an awake, closed Mac ventilated; battery drain continues.
 
-The fork uses the app name **CoffeeBull**, bundle ID `app.byrvr.CoffeeBull`, its own icon, and URL scheme `coffeebull://`. Upstream automatic updates are disabled. The original KeepingYouAwake installation and preferences are separate.
+The fork uses the app name **CoffeeBull**, bundle ID `app.byrvr.CoffeeBull`, an Awake Eye icon, and URL scheme `coffeebull://`. Upstream automatic updates are disabled. The original KeepingYouAwake installation and preferences are separate.
+
+The first Red Bull activation installs a root-owned, sleep-only helper after macOS administrator approval. The helper authenticates this exact signed app build and accepts only on, off, and status requests. No password is stored and no sudo rule is added. Approval survives app restarts; rebuilding/updating this locally signed app may require one setup approval again.
 
 ## Build a personal copy
 
@@ -23,6 +25,8 @@ open dist/CoffeeBull.app
 ```
 
 This creates a locally signed development app. It is not Developer ID signed or notarized. Red Bull requires a build outside the App Sandbox; the personal fork's entitlements reflect that requirement.
+
+Install the resulting `CoffeeBull.app` in `/Applications` before enabling Red Bull; its one-time helper setup requires that location.
 
 See the [documentation map](docs/INDEX.md) for lifecycle details, validation, and recovery. The original project's background and attribution follow.
 
