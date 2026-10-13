@@ -13,14 +13,36 @@
 #import "KYABatteryCapacityThreshold.h"
 #import "KYAActivationDurationsMenuController.h"
 #import "KYAActivationUserNotification.h"
+#import "../KYAClosedLidSession.h"
+#import <IOKit/IOKitLib.h>
 
 // Deprecated!
 #define KYA_MINUTES(m) (m * 60.0f)
 #define KYA_HOURS(h) (h * 3600.0f)
 
+static BOOL KYASystemSleepIsDisabled(void)
+{
+    io_service_t rootDomain = IOServiceGetMatchingService(kIOMainPortDefault, IOServiceMatching("IOPMrootDomain"));
+    if(rootDomain == IO_OBJECT_NULL)
+    {
+        return NO;
+    }
+
+    id sleepDisabled = CFBridgingRelease(IORegistryEntryCreateCFProperty(rootDomain, CFSTR("SleepDisabled"), kCFAllocatorDefault, 0));
+    IOObjectRelease(rootDomain);
+    return [sleepDisabled respondsToSelector:@selector(boolValue)] && [sleepDisabled boolValue];
+}
+
 @interface KYAAppController () <KYAStatusItemControllerDataSource, KYAStatusItemControllerDelegate, KYAActivationDurationsMenuControllerDelegate, KYASleepWakeTimerDelegate>
 @property (nonatomic, readwrite) KYASleepWakeTimer *sleepWakeTimer;
 @property (nonatomic, readwrite) KYAStatusItemController *statusItemController;
+@property (nonatomic, readwrite) KYAWakeMode wakeMode;
+@property (nonatomic) KYAClosedLidSession *closedLidSession;
+@property (nonatomic, nullable) NSError *closedLidCleanupError;
+@property (nonatomic) BOOL cleanupErrorAlertScheduled;
+@property (nonatomic) BOOL cleanupErrorAlertPresented;
+@property (nonatomic) BOOL authorizingRedBull;
+@property (nonatomic) BOOL terminating;
 @property (nonatomic) KYAActivationDurationsMenuController *menuController;
 
 @property (nonatomic) NSTimeInterval workspaceScheduledTimeInterval;
@@ -41,6 +63,10 @@
     self = [super init];
     if(self)
     {
+        self.wakeMode = KYAWakeModeCoffee;
+        self.workspaceScheduledTimeInterval = -1;
+        self.closedLidSession = [KYAClosedLidSession new];
+
         [self configureStatusItemController];
         [self configureSleepWakeTimer];
         [self configureEventHandler];
@@ -60,18 +86,30 @@
                    selector:@selector(batteryCapacityThresholdDidChange:)
                        name:kKYABatteryCapacityThresholdDidChangeNotification
                      object:nil];
+        [center addObserver:self
+                   selector:@selector(applicationWillTerminate:)
+                       name:NSApplicationWillTerminateNotification
+                     object:nil];
         
         [self registerForWorkspaceSessionNotifications];
+
+        // Always launch in Coffee mode, without an administrator prompt.
+        if([NSUserDefaults.standardUserDefaults kya_isActivatedOnLaunch])
+        {
+            [self activateTimer];
+        }
     }
     return self;
 }
 
 - (void)dealloc
 {
+    [self.closedLidSession endSession];
     Auto center = NSNotificationCenter.defaultCenter;
-    [center removeObserver:self name:NSApplicationDidFinishLaunchingNotification object:nil];
+    [center removeObserver:self name:NSApplicationWillFinishLaunchingNotification object:nil];
     [center removeObserver:self name:NSApplicationDidChangeScreenParametersNotification object:nil];
     [center removeObserver:self name:kKYABatteryCapacityThresholdDidChangeNotification object:nil];
+    [center removeObserver:self name:NSApplicationWillTerminateNotification object:nil];
     
     [self unregisterFromWorkspaceSessionNotifications];
 }
@@ -84,7 +122,158 @@
     menuController.delegate = self;
     self.menuController = menuController;
     
-    self.menu = KYACreateMainMenuWithActivationDurationsSubMenu(menuController.menu);
+    self.menu = KYACreateMainMenuWithActivationDurationsSubMenu(menuController.menu, self);
+    [self updateWakeModeAppearance];
+}
+
+#pragma mark - Wake Modes
+
+- (IBAction)selectCoffeeMode:(id)sender
+{
+    [self selectWakeMode:KYAWakeModeCoffee];
+}
+
+- (IBAction)selectRedBullMode:(id)sender
+{
+    [self selectWakeMode:KYAWakeModeRedBull];
+}
+
+- (void)selectWakeMode:(KYAWakeMode)wakeMode
+{
+    if(self.wakeMode == wakeMode && [self.sleepWakeTimer isScheduled])
+    {
+        return;
+    }
+
+    KYAWakeMode previousMode = self.wakeMode;
+    BOOL wasScheduled = [self.sleepWakeTimer isScheduled];
+    Auto fireDate = self.sleepWakeTimer.fireDate;
+    NSTimeInterval remainingTime = wasScheduled ? KYASleepWakeTimeIntervalIndefinite : self.defaultTimeInterval;
+    if(wasScheduled && fireDate != nil)
+    {
+        remainingTime = MAX(0, fireDate.timeIntervalSinceNow);
+    }
+
+    [self terminateTimer];
+    self.wakeMode = wakeMode;
+    [self updateWakeModeAppearance];
+
+    // An already expired timed session must not become an indefinite session.
+    if(wasScheduled && fireDate != nil && remainingTime <= 0)
+    {
+        return;
+    }
+
+    if([self activateTimerWithTimeInterval:remainingTime deadline:fireDate] == NO && wasScheduled)
+    {
+        // Cancelling the administrator prompt keeps the previous mode running.
+        self.wakeMode = previousMode;
+        if(fireDate != nil)
+        {
+            remainingTime = MAX(0, fireDate.timeIntervalSinceNow);
+            if(remainingTime <= 0)
+            {
+                [self updateWakeModeAppearance];
+                return;
+            }
+        }
+        [self activateTimerWithTimeInterval:remainingTime deadline:fireDate];
+    }
+}
+
+- (void)updateWakeModeAppearance
+{
+    BOOL active = [self.sleepWakeTimer isScheduled];
+    Auto modeName = self.wakeMode == KYAWakeModeRedBull ? @"Red Bull" : @"Coffee";
+    self.statusItemController.appearance = active ? KYAStatusItemAppearanceActive : KYAStatusItemAppearanceInactive;
+    Auto statusItem = [self.menu itemWithTag:KYAMainMenuItemTagWakeStatus];
+    statusItem.title = [NSString stringWithFormat:@"CoffeeBull · %@ — %@", modeName, active ? @"Active" : @"Inactive"];
+    if(self.closedLidCleanupError != nil)
+    {
+        statusItem.title = self.wakeMode == KYAWakeModeCoffee && active
+            ? @"CoffeeBull · Coffee Active — Sleep Restore Failed"
+            : @"CoffeeBull · Sleep Restore Failed";
+    }
+
+    BOOL externalSleepOverride = self.wakeMode == KYAWakeModeCoffee && KYASystemSleepIsDisabled();
+    Auto overrideItem = [self.menu itemWithTag:KYAMainMenuItemTagExternalSleepOverride];
+    overrideItem.hidden = !externalSleepOverride && self.closedLidCleanupError == nil;
+    overrideItem.title = self.closedLidCleanupError != nil ? @"Normal Sleep Needs Recovery" : @"System Sleep Already Disabled";
+    overrideItem.toolTip = self.closedLidCleanupError.localizedDescription ?: @"Coffee does not change an existing macOS sleep override. Start and stop Red Bull to take ownership and restore normal sleep.";
+
+    Auto modeMenu = [self.menu itemWithTag:KYAMainMenuItemTagWakeMode].submenu;
+    [modeMenu itemWithTag:KYAMainMenuItemTagCoffee].state = self.wakeMode == KYAWakeModeCoffee ? NSControlStateValueOn : NSControlStateValueOff;
+    [modeMenu itemWithTag:KYAMainMenuItemTagRedBull].state = self.wakeMode == KYAWakeModeRedBull ? NSControlStateValueOn : NSControlStateValueOff;
+
+    Auto button = self.statusItemController.systemStatusItem.button;
+    if(@available(macOS 11.0, *))
+    {
+        AutoVar symbolName = self.wakeMode == KYAWakeModeRedBull
+            ? (active ? @"bolt.fill" : @"bolt")
+            : (active ? @"cup.and.saucer.fill" : @"cup.and.saucer");
+        if(self.closedLidCleanupError != nil) { symbolName = @"exclamationmark.triangle.fill"; }
+        Auto image = [NSImage imageWithSystemSymbolName:symbolName accessibilityDescription:modeName];
+        if(image != nil)
+        {
+            image.template = YES;
+            button.image = image;
+        }
+    }
+    if(self.wakeMode == KYAWakeModeRedBull)
+    {
+        button.toolTip = active
+            ? @"Red Bull active — lid and manual sleep disabled systemwide, including on battery. Click to stop."
+            : @"Red Bull selected — click to authorize keeping the Mac awake with the lid closed.";
+    }
+    else
+    {
+        if(externalSleepOverride)
+        {
+            button.toolTip = active
+                ? @"Coffee active — a separate system sleep override is also active. Click to stop Coffee."
+                : @"Coffee selected — system sleep is already disabled by a separate override. Click to start Coffee.";
+        }
+        else
+        {
+            button.toolTip = active
+                ? @"Coffee active — prevents idle sleep. Click to stop."
+                : @"Coffee selected — click to prevent idle sleep.";
+        }
+    }
+    if(self.closedLidCleanupError != nil)
+    {
+        button.toolTip = self.closedLidCleanupError.localizedDescription;
+    }
+}
+
+// Record cleanup failures independently of the timer's active state. Alerts are
+// deferred until the current mode/timer transition has finished, and shown once
+// per failure episode. They never interrupt application termination.
+- (void)endClosedLidSession
+{
+    [self.closedLidSession endSession];
+    self.closedLidCleanupError = self.closedLidSession.lastCleanupError;
+    if(self.closedLidCleanupError == nil)
+    {
+        self.cleanupErrorAlertPresented = NO;
+        return;
+    }
+    if(self.terminating || self.cleanupErrorAlertPresented || self.cleanupErrorAlertScheduled) { return; }
+
+    self.cleanupErrorAlertScheduled = YES;
+    AutoWeak weakSelf = self;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        Auto strongSelf = weakSelf;
+        if(strongSelf == nil) { return; }
+        strongSelf.cleanupErrorAlertScheduled = NO;
+        if(strongSelf.terminating || strongSelf.authorizingRedBull || strongSelf.closedLidCleanupError == nil || strongSelf.cleanupErrorAlertPresented) { return; }
+        strongSelf.cleanupErrorAlertPresented = YES;
+        Auto alert = [NSAlert new];
+        alert.messageText = @"Normal Sleep Could Not Be Restored";
+        alert.informativeText = [strongSelf.closedLidCleanupError.localizedDescription stringByAppendingString:@"\n\nQuit all CoffeeBull instances before following the sleep recovery instructions. Red Bull cannot start until its previous session has finished cleanup."];
+        [alert addButtonWithTitle:@"OK"];
+        [alert runModal];
+    });
 }
 
 #pragma mark - Status Item Controller
@@ -104,30 +293,89 @@
     Auto sleepWakeTimer = [KYASleepWakeTimer new];
     sleepWakeTimer.delegate = self;
     self.sleepWakeTimer = sleepWakeTimer;
-    
-    // Activate on launch if needed
-    if([NSUserDefaults.standardUserDefaults kya_isActivatedOnLaunch])
-    {
-        [self activateTimer];
-    }
 }
 
-- (void)activateTimer
+- (BOOL)activateTimer
 {
-    [self activateTimerWithTimeInterval:self.defaultTimeInterval];
+    return [self activateTimerWithTimeInterval:self.defaultTimeInterval];
 }
 
-- (void)activateTimerWithTimeInterval:(NSTimeInterval)timeInterval
+- (BOOL)activateTimerWithTimeInterval:(NSTimeInterval)timeInterval
+{
+    return [self activateTimerWithTimeInterval:timeInterval deadline:nil];
+}
+
+- (BOOL)activateTimerWithTimeInterval:(NSTimeInterval)timeInterval deadline:(nullable NSDate *)deadline
 {
     // Do not allow negative time intervals
-    if(timeInterval < 0)
+    if(timeInterval < 0 || (deadline != nil && deadline.timeIntervalSinceNow <= 0))
     {
-        return;
+        return NO;
+    }
+
+    if([self.sleepWakeTimer isScheduled])
+    {
+        [self terminateTimer];
+    }
+
+    // Replace the old timer before authorization can spin a nested run loop.
+    // A previous session's queued callbacks must never affect the new session.
+    self.sleepWakeTimer.delegate = nil;
+    Auto sleepWakeTimer = [KYASleepWakeTimer new];
+    sleepWakeTimer.delegate = self;
+    self.sleepWakeTimer = sleepWakeTimer;
+
+    if(self.wakeMode == KYAWakeModeRedBull)
+    {
+        NSError *error = nil;
+        self.authorizingRedBull = YES;
+        BOOL started = [self.closedLidSession beginSessionWithError:&error];
+        self.authorizingRedBull = NO;
+        if(started == NO)
+        {
+            self.closedLidCleanupError = self.closedLidSession.lastCleanupError;
+            [self updateWakeModeAppearance];
+            if(error != nil && error.code != NSUserCancelledError &&
+               (self.closedLidCleanupError == nil || !self.cleanupErrorAlertPresented))
+            {
+                if(self.closedLidCleanupError != nil) { self.cleanupErrorAlertPresented = YES; }
+                Auto alert = [NSAlert new];
+                alert.messageText = @"Red Bull Could Not Start";
+                alert.informativeText = error.localizedDescription;
+                [alert addButtonWithTitle:@"OK"];
+                [alert runModal];
+            }
+            return NO;
+        }
+        self.closedLidCleanupError = nil;
+        self.cleanupErrorAlertPresented = NO;
+    }
+
+    if(deadline != nil)
+    {
+        // Time spent authorizing Red Bull counts toward an existing session.
+        timeInterval = deadline.timeIntervalSinceNow;
+        if(timeInterval <= 0)
+        {
+            [self endClosedLidSession];
+            [self updateWakeModeAppearance];
+            return NO;
+        }
     }
 
     Auto defaults = NSUserDefaults.standardUserDefaults;
-    
+    AutoWeak weakSelf = self;
+    AutoWeak weakTimer = sleepWakeTimer;
     Auto timerCompletion = ^(BOOL cancelled) {
+        Auto strongSelf = weakSelf;
+        if(cancelled || strongSelf == nil || strongSelf.sleepWakeTimer != weakTimer)
+        {
+            return;
+        }
+        [strongSelf endClosedLidSession];
+        [strongSelf disableBatteryOverride];
+        [strongSelf updateWakeModeAppearance];
+
         // Post deactivation notification
         Auto notification = [[KYAActivationUserNotification alloc] initWithFireDate:nil activating:NO];
         [KYAUserNotificationCenter.sharedCenter postNotification:notification];
@@ -139,20 +387,32 @@
         }
     };
     [self.sleepWakeTimer scheduleWithTimeInterval:timeInterval completion:timerCompletion];
+    [self updateWakeModeAppearance];
 
     // Post activation notification
     Auto fireDate = self.sleepWakeTimer.fireDate;
     Auto notification = [[KYAActivationUserNotification alloc] initWithFireDate:fireDate activating:YES];
     [KYAUserNotificationCenter.sharedCenter postNotification:notification];
+    return YES;
 }
 
 - (void)terminateTimer
 {
+    BOOL wasActive = [self.sleepWakeTimer isScheduled] || self.closedLidSession.active;
+    [self endClosedLidSession];
     [self disableBatteryOverride];
 
     if([self.sleepWakeTimer isScheduled])
     {
         [self.sleepWakeTimer invalidate];
+    }
+    [self disableDevicePowerMonitoring];
+    [self updateWakeModeAppearance];
+
+    if(wasActive)
+    {
+        Auto notification = [[KYAActivationUserNotification alloc] initWithFireDate:nil activating:NO];
+        [KYAUserNotificationCenter.sharedCenter postNotification:notification];
     }
 }
 
@@ -316,7 +576,14 @@
     Auto defaults = NSUserDefaults.standardUserDefaults;
     if([defaults kya_isDeactivateOnUserSwitchEnabled] && [self.sleepWakeTimer isScheduled])
     {
-        self.workspaceScheduledTimeInterval = self.sleepWakeTimer.scheduledTimeInterval;
+        Auto fireDate = self.sleepWakeTimer.fireDate;
+        self.workspaceScheduledTimeInterval = fireDate == nil
+            ? KYASleepWakeTimeIntervalIndefinite
+            : MAX(0, fireDate.timeIntervalSinceNow);
+        if(fireDate != nil && self.workspaceScheduledTimeInterval <= 0)
+        {
+            self.workspaceScheduledTimeInterval = -1;
+        }
         [self terminateTimer];
     }
 }
@@ -326,6 +593,12 @@
 - (void)applicationWillFinishLaunching:(NSNotification *)notification
 {
     [KYAEventHandler.defaultHandler registerAsDefaultEventHandler];
+}
+
+- (void)applicationWillTerminate:(NSNotification *)notification
+{
+    self.terminating = YES;
+    [self terminateTimer];
 }
 
 - (void)configureEventHandler
@@ -340,7 +613,6 @@
     [eventHandler registerActionNamed:@"deactivate" block:^(KYAEvent *event) {
         Auto strongSelf = weakSelf;
         [strongSelf terminateTimer];
-        strongSelf.statusItemController.appearance = KYAStatusItemAppearanceInactive;
     }];
     
     [eventHandler registerActionNamed:@"toggle" block:^(KYAEvent *event) {
@@ -358,32 +630,26 @@
 
     [self terminateTimer];
     
-    Auto statusItemController = self.statusItemController;
-
     // Activate indefinitely if there are no parameters
     if(parameters == nil || parameters.count == 0)
     {
         [self activateTimer];
-        statusItemController.appearance = KYAStatusItemAppearanceActive;
     }
     else if(seconds != nil)
     {
         [self activateTimerWithTimeInterval:(NSTimeInterval)ceil(seconds.doubleValue)];
-        statusItemController.appearance = KYAStatusItemAppearanceActive;
     }
     else if(minutes != nil)
     {
         [self activateTimerWithTimeInterval:(NSTimeInterval)KYA_MINUTES(ceil(minutes.doubleValue))];
-        statusItemController.appearance = KYAStatusItemAppearanceActive;
     }
     else if(hours != nil)
     {
         [self activateTimerWithTimeInterval:(NSTimeInterval)KYA_HOURS(ceil(hours.doubleValue))];
-        statusItemController.appearance = KYAStatusItemAppearanceActive;
     }
     else
     {
-        statusItemController.appearance = KYAStatusItemAppearanceInactive;
+        [self updateWakeModeAppearance];
     }
 }
 
@@ -421,6 +687,7 @@
 
 - (NSMenu *)menuForStatusItemController:(KYAStatusItemController *)controller
 {
+    [self updateWakeModeAppearance];
     return self.menu;
 }
 
@@ -472,6 +739,10 @@
 
 - (void)sleepWakeTimer:(KYASleepWakeTimer *)sleepWakeTimer willActivateWithTimeInterval:(NSTimeInterval)timeInterval
 {
+    if(sleepWakeTimer != self.sleepWakeTimer)
+    {
+        return;
+    }
     // Update the status item
     self.statusItemController.appearance = KYAStatusItemAppearanceActive;
     
@@ -480,8 +751,13 @@
 
 - (void)sleepWakeTimerDidDeactivate:(KYASleepWakeTimer *)sleepWakeTimer
 {
-    // Update the status item
-    self.statusItemController.appearance = KYAStatusItemAppearanceInactive;
+    if(sleepWakeTimer != self.sleepWakeTimer || [sleepWakeTimer isScheduled])
+    {
+        return;
+    }
+
+    [self endClosedLidSession];
+    [self updateWakeModeAppearance];
     
     [self disableDevicePowerMonitoring];
 }

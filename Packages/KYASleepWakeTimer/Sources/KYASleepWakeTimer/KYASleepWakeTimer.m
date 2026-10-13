@@ -16,6 +16,7 @@ NSTimeInterval const KYASleepWakeTimeIntervalIndefinite = 0;
 @property (nonatomic, readwrite) NSTimeInterval scheduledTimeInterval;
 @property (nonatomic) NSTask *caffeinateTask;
 @property (nonatomic) os_log_t log;
+@property (nonatomic) id applicationTerminationObserver;
 @end
 
 @implementation KYASleepWakeTimer
@@ -28,7 +29,7 @@ NSTimeInterval const KYASleepWakeTimeIntervalIndefinite = 0;
         // Terminate all remaining tasks on app quit
         AutoWeak weakSelf = self;
         Auto center = NSNotificationCenter.defaultCenter;
-        [center addObserverForName:NSApplicationWillTerminateNotification
+        self.applicationTerminationObserver = [center addObserverForName:NSApplicationWillTerminateNotification
                             object:nil
                              queue:nil
                         usingBlock:^(NSNotification *note) {
@@ -42,7 +43,14 @@ NSTimeInterval const KYASleepWakeTimeIntervalIndefinite = 0;
 
 - (void)dealloc
 {
-    [self invalidate];
+    [NSNotificationCenter.defaultCenter removeObserver:self.applicationTerminationObserver];
+    // invalidate queues callbacks which retain the timer. A timer being
+    // destroyed cannot be captured by another callback or resurrected.
+    _caffeinateTask.terminationHandler = nil;
+    if(_caffeinateTask.isRunning)
+    {
+        [_caffeinateTask terminate];
+    }
 }
 
 #pragma mark - Scheduling

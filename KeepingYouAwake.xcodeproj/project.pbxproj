@@ -102,6 +102,8 @@
 		DAD9838A26F9037900234FB8 /* KYADurationSettingsViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = DAD9838C26F9037900234FB8 /* KYADurationSettingsViewController.xib */; };
 		DAD983A726F9C46600234FB8 /* KYAAddDurationViewController.xib in Resources */ = {isa = PBXBuildFile; fileRef = DAD983A926F9C46600234FB8 /* KYAAddDurationViewController.xib */; };
 		DAEF160C277C67D800EA9478 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = DAEF160B277C67D800EA9478 /* Sparkle */; };
+		CB0010000000000000000001 /* KYAClosedLidSession.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0010000000000000000003 /* KYAClosedLidSession.m */; };
+		CB0010000000000000000002 /* KYAClosedLidSession.m in Sources */ = {isa = PBXBuildFile; fileRef = CB0010000000000000000003 /* KYAClosedLidSession.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -193,7 +195,7 @@
 		DA52B1072617021500D09FE5 /* KYAActivationUserNotification.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAActivationUserNotification.h; sourceTree = "<group>"; };
 		DA5680192115FF140039C979 /* KYAUpdateSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAUpdateSettingsViewController.m; sourceTree = "<group>"; };
 		DA56801A2115FF140039C979 /* KYAUpdateSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAUpdateSettingsViewController.h; sourceTree = "<group>"; };
-		DA637B3919F14693004C8838 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeepingYouAwake.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA637B3919F14693004C8838 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeBull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA637B3D19F14693004C8838 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA637B3E19F14693004C8838 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		DA637B4019F14693004C8838 /* KYAAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KYAAppDelegate.h; sourceTree = "<group>"; };
@@ -234,7 +236,7 @@
 		DAB1286B1C24540200831045 /* KYAAboutSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAAboutSettingsViewController.m; sourceTree = "<group>"; };
 		DAB128741C2493DB00831045 /* KYAUserDefaultsSetting.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAUserDefaultsSetting.h; sourceTree = "<group>"; };
 		DAB128751C2493DB00831045 /* KYAUserDefaultsSetting.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAUserDefaultsSetting.m; sourceTree = "<group>"; };
-		DAD3CF8F271186720006CA14 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = KeepingYouAwake.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAD3CF8F271186720006CA14 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeBull.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAD68A7B27C957B30036ED19 /* MainMenu.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = MainMenu.xib; sourceTree = "<group>"; };
 		DAD68A7F27C957E20036ED19 /* KYAMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAMainMenu.h; sourceTree = "<group>"; };
 		DAD68A8027C957E20036ED19 /* KYAMainMenu.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAMainMenu.m; sourceTree = "<group>"; };
@@ -246,6 +248,8 @@
 		DAD9838B26F9037900234FB8 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/KYADurationSettingsViewController.xib; sourceTree = "<group>"; };
 		DAD983A826F9C46600234FB8 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.xib; name = Base; path = Base.lproj/KYAAddDurationViewController.xib; sourceTree = "<group>"; };
 		DAE9C00D26107E1A00F9ED76 /* Configuration.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Configuration.xcconfig; sourceTree = SOURCE_ROOT; };
+		CB0010000000000000000003 /* KYAClosedLidSession.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = KYAClosedLidSession.m; sourceTree = "<group>"; };
+		CB0010000000000000000004 /* KYAClosedLidSession.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KYAClosedLidSession.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -402,6 +406,8 @@
 			children = (
 				DAA478D3227C233000E609C1 /* KYALocalizedStrings.h */,
 				DA9A4FE5261631D700C672C4 /* KYALocalizedStrings.m */,
+				CB0010000000000000000004 /* KYAClosedLidSession.h */,
+				CB0010000000000000000003 /* KYAClosedLidSession.m */,
 				DAD6480B24F14570008E9AA0 /* KYAAppController */,
 				DAD68A7E27C957E20036ED19 /* KYAMainMenu */,
 				DA82560E22FB5B31005ECB3A /* KYAActivationDurationsMenuController */,
@@ -765,6 +771,7 @@
 				DAB1286C1C24540200831045 /* KYAAboutSettingsViewController.m in Sources */,
 				DA898C732A3EEE8D0005A48A /* KYASettingsWindow.m in Sources */,
 				DA637B5E19F146B6004C8838 /* KYAAppController.m in Sources */,
+				CB0010000000000000000001 /* KYAClosedLidSession.m in Sources */,
 				DA4950FB27C97EF2008D1747 /* KYABatterySettingsViewController.m in Sources */,
 				DA2CCD5F26F8754C00568BDD /* KYASettingsContentViewController.m in Sources */,
 				DA637B3F19F14693004C8838 /* main.m in Sources */,
@@ -802,6 +809,7 @@
 				DAD3CF6A271186720006CA14 /* KYAAboutSettingsViewController.m in Sources */,
 				DA898C742A3EEE8D0005A48A /* KYASettingsWindow.m in Sources */,
 				DAD3CF6B271186720006CA14 /* KYAAppController.m in Sources */,
+				CB0010000000000000000002 /* KYAClosedLidSession.m in Sources */,
 				DA4950FC27C97EF2008D1747 /* KYABatterySettingsViewController.m in Sources */,
 				DAD3CF6C271186720006CA14 /* KYASettingsContentViewController.m in Sources */,
 				DAD3CF6D271186720006CA14 /* main.m in Sources */,
@@ -1095,7 +1103,7 @@
 				);
 				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
 				MTL_FAST_MATH = YES;
-				PRODUCT_BUNDLE_IDENTIFIER = "info.marcel-dierkes.KeepingYouAwake.Launcher";
+				PRODUCT_BUNDLE_IDENTIFIER = "app.byrvr.CoffeeBull.Launcher";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
@@ -1129,7 +1137,7 @@
 				);
 				MTL_FAST_MATH = YES;
 				OTHER_CODE_SIGN_FLAGS = "$(inherited) --timestamp";
-				PRODUCT_BUNDLE_IDENTIFIER = "info.marcel-dierkes.KeepingYouAwake.Launcher";
+				PRODUCT_BUNDLE_IDENTIFIER = "app.byrvr.CoffeeBull.Launcher";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SKIP_INSTALL = YES;
@@ -1149,7 +1157,7 @@
 				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					"DEBUG=1",
-					"KYA_APP_UPDATER_ENABLED=1",
+					"KYA_APP_UPDATER_ENABLED=0",
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = KeepingYouAwake/Info.plist;
@@ -1158,7 +1166,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LOCALIZATION_EXPORT_SUPPORTED = NO;
-				PRODUCT_NAME = KeepingYouAwake;
+				PRODUCT_NAME = CoffeeBull;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -1177,7 +1185,7 @@
 				DEVELOPMENT_TEAM = 5KESHV9W85;
 				ENABLE_HARDENED_RUNTIME = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = (
-					"KYA_APP_UPDATER_ENABLED=1",
+					"KYA_APP_UPDATER_ENABLED=0",
 					"$(inherited)",
 				);
 				INFOPLIST_FILE = KeepingYouAwake/Info.plist;
@@ -1187,7 +1195,7 @@
 				);
 				LOCALIZATION_EXPORT_SUPPORTED = NO;
 				OTHER_CODE_SIGN_FLAGS = "$(inherited) --timestamp";
-				PRODUCT_NAME = KeepingYouAwake;
+				PRODUCT_NAME = CoffeeBull;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};

@@ -1,82 +1,82 @@
 {
-  "fill" : {
-    "automatic-gradient" : "extended-gray:0.86665,1.00000"
+  "fill": {
+    "automatic-gradient": "extended-srgb:1.00000,0.48000,0.16000,1.00000"
   },
-  "groups" : [
+  "groups": [
     {
-      "blur-material" : null,
-      "layers" : [
+      "blur-material": null,
+      "layers": [
         {
-          "blend-mode-specializations" : [
+          "blend-mode-specializations": [
             {
-              "value" : "normal"
+              "value": "normal"
             },
             {
-              "appearance" : "dark",
-              "value" : "normal"
+              "appearance": "dark",
+              "value": "normal"
             }
           ],
-          "fill-specializations" : [
+          "fill-specializations": [
             {
-              "value" : {
-                "solid" : "extended-gray:0.17828,1.00000"
+              "value": {
+                "solid": "extended-gray:0.17828,1.00000"
               }
             },
             {
-              "appearance" : "dark",
-              "value" : {
-                "solid" : "extended-gray:0.87809,1.00000"
+              "appearance": "dark",
+              "value": {
+                "solid": "extended-gray:0.87809,1.00000"
               }
             },
             {
-              "appearance" : "tinted",
-              "value" : {
-                "solid" : "gray:0.94154,1.00000"
+              "appearance": "tinted",
+              "value": {
+                "solid": "gray:0.94154,1.00000"
               }
             }
           ],
-          "glass" : true,
-          "image-name" : "AppIcon.svg",
-          "name" : "Logo",
-          "position" : {
-            "scale" : 1,
-            "translation-in-points" : [
+          "glass": true,
+          "image-name": "AppIcon.svg",
+          "name": "Logo",
+          "position": {
+            "scale": 1,
+            "translation-in-points": [
               0,
               14
             ]
           }
         }
       ],
-      "shadow" : {
-        "kind" : "layer-color",
-        "opacity" : 0.5
+      "shadow": {
+        "kind": "layer-color",
+        "opacity": 0.5
       },
-      "specular" : true,
-      "translucency-specializations" : [
+      "specular": true,
+      "translucency-specializations": [
         {
-          "value" : {
-            "enabled" : false,
-            "value" : 0.5
+          "value": {
+            "enabled": false,
+            "value": 0.5
           }
         },
         {
-          "appearance" : "dark",
-          "value" : {
-            "enabled" : true,
-            "value" : 0.5
+          "appearance": "dark",
+          "value": {
+            "enabled": true,
+            "value": 0.5
           }
         },
         {
-          "appearance" : "tinted",
-          "value" : {
-            "enabled" : true,
-            "value" : 0.5
+          "appearance": "tinted",
+          "value": {
+            "enabled": true,
+            "value": 0.5
           }
         }
       ]
     }
   ],
-  "supported-platforms" : {
-    "squares" : "shared"
+  "supported-platforms": {
+    "squares": "shared"
   }
 }

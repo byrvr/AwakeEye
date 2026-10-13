@@ -1,10 +1,38 @@
-# KeepingYouAwake
+# CoffeeBull
+
+A personal fork of [KeepingYouAwake](https://github.com/newmarcel/KeepingYouAwake), with two menu-bar wake modes.
+
+| Mode | Behavior |
+| --- | --- |
+| **Coffee ☕** | Keeps the Mac awake during inactivity using `caffeinate`; uses the existing display and duration preferences. |
+| **Red Bull ⚡** | Also disables system sleep, including lid-close and manual Sleep, on both charger and battery. Requires native macOS administrator authentication. |
+
+Right-click the menu-bar icon to select a mode. Selecting a mode starts it; left-click the icon to stop or restart it. Red Bull is temporary: stopping, switching to Coffee, reaching the selected duration, or quitting ends the override. A separate watchdog also restores normal sleep if the app crashes. Every launch defaults to Coffee.
+
+Red Bull takes ownership of the global sleep setting and resets it to normal on cleanup. **Coffee leaves any pre-existing global sleep override in place.** If sleep was already disabled using `pmset`, stop a Red Bull session or run `sudo pmset -a disablesleep 0` to restore normal sleep. Keep an awake, closed Mac ventilated; battery drain continues.
+
+The fork uses the app name **CoffeeBull**, bundle ID `app.byrvr.CoffeeBull`, its own icon, and URL scheme `coffeebull://`. Upstream automatic updates are disabled. The original KeepingYouAwake installation and preferences are separate.
+
+## Build a personal copy
+
+Requires Xcode and its command-line tools. From the repository root:
+
+```sh
+./scripts/build-local.sh
+open dist/CoffeeBull.app
+```
+
+This creates a locally signed development app. It is not Developer ID signed or notarized. Red Bull requires a build outside the App Sandbox; the personal fork's entitlements reflect that requirement.
+
+See the [documentation map](docs/INDEX.md) for lifecycle details, validation, and recovery. The original project's background and attribution follow.
+
+## Upstream: KeepingYouAwake
 
 KeepingYouAwake is a small menu bar utility for macOS *(Version 10.13 and newer)* that can prevent your Mac from entering sleep mode for a predefined duration or as long as it is activated.
 
 https://keepingyouawake.app/
 
-## Installation
+### Upstream installation
 
 **[Download the latest version here.](https://github.com/newmarcel/KeepingYouAwake/releases/latest)**
 
@@ -16,9 +44,9 @@ or install it via [cask](http://caskroom.github.io/): `brew install --cask keepi
 
 The app is a small wrapper around Apple's `caffeinate` command line utility. All current versions of macOS ship with this tool by default. You can read the manual page [here](https://web.archive.org/web/20140604153141/https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man8/caffeinate.8.html).
 
-### Does it work on a MacBook with a closed lid?
+### Does upstream KeepingYouAwake work on a MacBook with a closed lid?
 
-No. Because of _(sensible)_ macOS limitations and out of thermal considerations, KeepingYouAwake will only prevent sleep on desktop Macs and portable Macs with an open lid.
+Upstream does not. This fork adds closed-lid support through the separately authorized Red Bull mode described above.
 
 ## Is this dangerous?
 
@@ -34,9 +62,9 @@ This utility will not harm your Mac because it is based on an official command l
 - [Version 1.6.2](https://github.com/newmarcel/KeepingYouAwake/releases/tag/1.6.2) is the last release that supports macOS Sierra (10.12)
 - [Version 1.5.2](https://github.com/newmarcel/KeepingYouAwake/releases/tag/1.5.2) is the last release that supports macOS Yosemite (10.10) and El Capitan (10.11)
 
-## Contribution Guidelines
+## Upstream contribution guidelines
 
-If you plan to contribute to the project, I recommend taking a look at the [Contribution Guidelines](./CONTRIBUTING.md). These should cover common questions and will be updated over time.
+For contributions to the original project, read its [Contribution Guidelines](./CONTRIBUTING.md). Development of this personal fork stays in `byrvr/KeepingYouAwake`.
 
 ## License
 

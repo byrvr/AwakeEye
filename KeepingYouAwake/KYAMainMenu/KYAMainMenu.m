@@ -10,12 +10,53 @@
 #import <KYACommon/KYACommon.h>
 #import "KYALocalizedStrings.h"
 #import "KYAAppDelegate.h"
+#import "KYAAppController.h"
 
-NSMenu *KYACreateMainMenuWithActivationDurationsSubMenu(NSMenu *activationDurationsSubMenu)
+NSMenu *KYACreateMainMenuWithActivationDurationsSubMenu(NSMenu *activationDurationsSubMenu, id wakeModeTarget)
 {
     NSCParameterAssert(activationDurationsSubMenu);
+    NSCParameterAssert(wakeModeTarget);
     
     Auto mainMenu = [[NSMenu alloc] initWithTitle:@""];
+
+    Auto wakeStatus = [[NSMenuItem alloc] initWithTitle:@"Coffee — Inactive"
+                                                action:nil
+                                         keyEquivalent:@""];
+    wakeStatus.tag = KYAMainMenuItemTagWakeStatus;
+    [mainMenu addItem:wakeStatus];
+
+    Auto externalOverride = [[NSMenuItem alloc] initWithTitle:@"System Sleep Already Disabled"
+                                                      action:nil
+                                               keyEquivalent:@""];
+    externalOverride.tag = KYAMainMenuItemTagExternalSleepOverride;
+    externalOverride.hidden = YES;
+    externalOverride.toolTip = @"Coffee does not change an existing macOS sleep override. Start and stop Red Bull to take ownership and restore normal sleep.";
+    [mainMenu addItem:externalOverride];
+
+    Auto modeMenu = [[NSMenu alloc] initWithTitle:@"Wake Mode"];
+    Auto coffee = [[NSMenuItem alloc] initWithTitle:@"Coffee — Prevent Idle Sleep"
+                                           action:@selector(selectCoffeeMode:)
+                                    keyEquivalent:@""];
+    coffee.target = wakeModeTarget;
+    coffee.tag = KYAMainMenuItemTagCoffee;
+    coffee.toolTip = @"Uses caffeinate while this app is running. Closing the lid still follows the Mac's sleep policy.";
+    [modeMenu addItem:coffee];
+
+    Auto redBull = [[NSMenuItem alloc] initWithTitle:@"Red Bull — Keep Running with Lid Closed…"
+                                            action:@selector(selectRedBullMode:)
+                                     keyEquivalent:@""];
+    redBull.target = wakeModeTarget;
+    redBull.tag = KYAMainMenuItemTagRedBull;
+    redBull.toolTip = @"Requires administrator authorization. Disables lid and manual sleep systemwide, including on battery, until stopped.";
+    [modeMenu addItem:redBull];
+
+    Auto wakeMode = [[NSMenuItem alloc] initWithTitle:@"Wake Mode"
+                                              action:nil
+                                       keyEquivalent:@""];
+    wakeMode.tag = KYAMainMenuItemTagWakeMode;
+    wakeMode.submenu = modeMenu;
+    [mainMenu addItem:wakeMode];
+    [mainMenu addItem:NSMenuItem.separatorItem];
     
     Auto activateForDuration = [[NSMenuItem alloc] initWithTitle:KYA_L10N_ACTIVATE_FOR_DURATION
                                                           action:nil
