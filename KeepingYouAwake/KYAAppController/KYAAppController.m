@@ -189,12 +189,12 @@ static BOOL KYASystemSleepIsDisabled(void)
     Auto modeName = self.wakeMode == KYAWakeModeRedBull ? @"Red Bull" : @"Coffee";
     self.statusItemController.appearance = active ? KYAStatusItemAppearanceActive : KYAStatusItemAppearanceInactive;
     Auto statusItem = [self.menu itemWithTag:KYAMainMenuItemTagWakeStatus];
-    statusItem.title = [NSString stringWithFormat:@"CoffeeBull · %@ — %@", modeName, active ? @"Active" : @"Inactive"];
+    statusItem.title = [NSString stringWithFormat:@"AwakeEye · %@ — %@", modeName, active ? @"Active" : @"Inactive"];
     if(self.closedLidCleanupError != nil)
     {
         statusItem.title = self.wakeMode == KYAWakeModeCoffee && active
-            ? @"CoffeeBull · Coffee Active — Sleep Restore Failed"
-            : @"CoffeeBull · Sleep Restore Failed";
+            ? @"AwakeEye · Coffee Active — Sleep Restore Failed"
+            : @"AwakeEye · Sleep Restore Failed";
     }
 
     BOOL externalSleepOverride = self.wakeMode == KYAWakeModeCoffee && KYASystemSleepIsDisabled();
@@ -272,7 +272,7 @@ static BOOL KYASystemSleepIsDisabled(void)
         strongSelf.cleanupErrorAlertPresented = YES;
         Auto alert = [NSAlert new];
         alert.messageText = @"Normal Sleep Could Not Be Restored";
-        alert.informativeText = [strongSelf.closedLidCleanupError.localizedDescription stringByAppendingString:@"\n\nQuit all CoffeeBull instances before following the sleep recovery instructions. Red Bull cannot start until its previous session has finished cleanup."];
+        alert.informativeText = [strongSelf.closedLidCleanupError.localizedDescription stringByAppendingString:@"\n\nQuit all AwakeEye instances before following the sleep recovery instructions. Red Bull cannot start until its previous session has finished cleanup."];
         [alert addButtonWithTitle:@"OK"];
         [alert runModal];
     });
@@ -609,10 +609,12 @@ static BOOL KYASystemSleepIsDisabled(void)
     
     AutoWeak weakSelf = self;
     [eventHandler registerActionNamed:@"redbull" block:^(KYAEvent *event) {
-        [weakSelf selectRedBullMode:weakSelf];
+        Auto strongSelf = weakSelf;
+        [strongSelf selectRedBullMode:strongSelf];
     }];
     [eventHandler registerActionNamed:@"coffee" block:^(KYAEvent *event) {
-        [weakSelf selectCoffeeMode:weakSelf];
+        Auto strongSelf = weakSelf;
+        [strongSelf selectCoffeeMode:strongSelf];
     }];
 
     [eventHandler registerActionNamed:@"activate" block:^(KYAEvent *event) {

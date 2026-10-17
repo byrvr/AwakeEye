@@ -1,4 +1,4 @@
-// CoffeeBull's deliberately small privileged service. It accepts three fixed
+// AwakeEye's deliberately small privileged service. It accepts three fixed
 // operations from the exact app code approved at installation, and nothing else.
 
 #import <Foundation/Foundation.h>
@@ -323,7 +323,7 @@ typedef BOOL (^CBOwnerValidator)(audit_token_t token);
 {
     if(self.active && (self.lastError != nil || audit_token_to_pid(self.owner) <= 0 || !self.ownerIsLive(self.owner)))
     {
-        if(![self restore]) { NSLog(@"CoffeeBull: %@", self.lastError); }
+        if(![self restore]) { NSLog(@"AwakeEye: %@", self.lastError); }
     }
 }
 
@@ -342,14 +342,14 @@ typedef BOOL (^CBOwnerValidator)(audit_token_t token);
             NSNumber *disabled = self.readFlag(&error);
             if(self.lastError != nil || disabled == nil || !disabled.boolValue)
             {
-                return [self reply:NO error:self.lastError ?: error ?: @"Red Bull's sleep setting was changed outside CoffeeBull." code:@"power"];
+                return [self reply:NO error:self.lastError ?: error ?: @"Red Bull's sleep setting was changed outside AwakeEye." code:@"power"];
             }
         }
         return [self reply:YES error:nil code:nil];
     }
     if(self.active && ![self sameOwner:peer])
     {
-        return [self reply:NO error:self.lastError ?: @"Another CoffeeBull instance owns Red Bull mode." code:self.lastError ? @"power" : @"ownership"];
+        return [self reply:NO error:self.lastError ?: @"Another AwakeEye instance owns Red Bull mode." code:self.lastError ? @"power" : @"ownership"];
     }
     if([verb isEqualToString:@"OFF"])
     {
@@ -460,7 +460,7 @@ static int CBCreateListener(uid_t approvedUID, struct stat *createdSocket, NSStr
         close(probe);
         if(connectionError != ECONNREFUSED && connectionError != ENOENT)
         {
-            *error = @"Another CoffeeBull helper is already listening.";
+            *error = @"Another AwakeEye helper is already listening.";
             return -1;
         }
         struct stat checked;
@@ -624,7 +624,7 @@ static int CBSelfTest(void)
     disabled = YES;
     [lease pollOwner];
     check(!lease.active && !marker && !disabled && [actions isEqual:@[@"set0", @"remove"]], @"daemon restart restores owned override");
-    fprintf(stdout, "CoffeeBull helper self-test: %s (%lu failures)\n", failures == 0 ? "PASS" : "FAIL", (unsigned long)failures);
+    fprintf(stdout, "AwakeEye helper self-test: %s (%lu failures)\n", failures == 0 ? "PASS" : "FAIL", (unsigned long)failures);
     return failures == 0 ? 0 : 1;
 }
 
@@ -635,7 +635,7 @@ int main(int argc, const char *argv[])
         if(argc == 2 && strcmp(argv[1], "--self-test") == 0) { return CBSelfTest(); }
         if(argc != 5 || strcmp(argv[1], "--uid") != 0 || strcmp(argv[3], "--cdhash") != 0 || geteuid() != 0)
         {
-            fprintf(stderr, "CoffeeBull helper requires root and --uid <uid> --cdhash <40 hex characters>.\n");
+            fprintf(stderr, "AwakeEye helper requires root and --uid <uid> --cdhash <40 hex characters>.\n");
             return 64;
         }
         errno = 0;
@@ -645,7 +645,7 @@ int main(int argc, const char *argv[])
         if(errno != 0 || end == argv[2] || *end != '\0' || rawUID == 0 || rawUID >= UINT_MAX ||
            strspn(argv[2], "0123456789") != strlen(argv[2]) || approvedHash == nil)
         {
-            fprintf(stderr, "CoffeeBull helper configuration is invalid.\n");
+            fprintf(stderr, "AwakeEye helper configuration is invalid.\n");
             return 64;
         }
         uid_t approvedUID = (uid_t)rawUID;
@@ -669,11 +669,11 @@ int main(int argc, const char *argv[])
         struct stat createdSocket = {0};
         // Refuse a second daemon before recovering an earlier daemon's marker.
         int listener = CBCreateListener(approvedUID, &createdSocket, &error);
-        if(listener < 0) { NSLog(@"CoffeeBull: %@", error); return 73; }
+        if(listener < 0) { NSLog(@"AwakeEye: %@", error); return 73; }
         BOOL marker = NO;
         if(!CBMarkerPresent(&marker, &error))
         {
-            NSLog(@"CoffeeBull: %@", error);
+            NSLog(@"AwakeEye: %@", error);
             close(listener);
             unlink(CBSocketPath);
             return 73;
@@ -695,7 +695,7 @@ int main(int argc, const char *argv[])
                 NSDictionary *reply;
                 if(!CBAuthenticateSocket(peer, approvedUID, approvedHash, &token))
                 {
-                    reply = @{ @"ok": @NO, @"active": @NO, @"error": @"This app was not approved for the CoffeeBull helper.",
+                    reply = @{ @"ok": @NO, @"active": @NO, @"error": @"This app was not approved for the AwakeEye helper.",
                                @"error_code": @"unauthorized", @"protocol": @2, @"owner_pid": @0 };
                 }
                 else
@@ -713,7 +713,7 @@ int main(int argc, const char *argv[])
         for(NSUInteger attempt = 0; lease.active && attempt < 5; attempt++)
         {
             if([lease restore]) { break; }
-            NSLog(@"CoffeeBull: %@", lease.lastError);
+            NSLog(@"AwakeEye: %@", lease.lastError);
             usleep(250000);
         }
         close(listener);

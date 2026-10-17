@@ -1,9 +1,9 @@
 ---
-title: CoffeeBull documentation
+title: AwakeEye documentation
 status: current
 language: en
 owner: byrvr
-last-updated: 2026-10-12
+last-updated: 2026-10-17
 audience: both
 scope: system
 related:
@@ -11,10 +11,10 @@ related:
   - operations/build-and-recovery.md
 ---
 
-# CoffeeBull documentation
+# AwakeEye documentation
 
 | Document | When to read |
 | --- | --- |
 | [Wake modes](architecture/wake-modes.md) | Changing Coffee, Red Bull, activation, or cleanup behavior. |
-| [Build and recovery](operations/build-and-recovery.md) | Building, verifying, or restoring sleep. |
+| [Build and recovery](operations/build-and-recovery.md) | Installing a release, building, packaging, verifying, or restoring sleep. |
 | [Maintenance](META.md) | Updating these instructions. |

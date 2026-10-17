@@ -2,8 +2,8 @@
 set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
-build_dir="${COFFEEBULL_BUILD_DIR:-$repo_root/build}"
-output_dir="${COFFEEBULL_OUTPUT_DIR:-$repo_root/dist}"
+build_dir="${AWAKEEYE_BUILD_DIR:-${COFFEEBULL_BUILD_DIR:-$repo_root/build}}"
+output_dir="${AWAKEEYE_OUTPUT_DIR:-${COFFEEBULL_OUTPUT_DIR:-$repo_root/dist}}"
 mkdir -p "$build_dir" "$output_dir"
 
 if [[ -z "${DEVELOPER_DIR:-}" && -d /Applications/Xcode.app/Contents/Developer ]]; then
@@ -31,15 +31,15 @@ printf '#define COFFEEBULL_HELPER_SHA256 @"%s"\n' "$helper_digest" \
   ENABLE_HARDENED_RUNTIME=YES \
   ONLY_ACTIVE_ARCH=YES
 
-if [[ -d "$output_dir/CoffeeBull.app" ]]; then
+if [[ -d "$output_dir/AwakeEye.app" ]]; then
   previous_export="$(/usr/bin/mktemp -d "$build_dir/previous-export.XXXXXXXX")"
-  /bin/mv "$output_dir/CoffeeBull.app" "$previous_export/CoffeeBull.app"
+  /bin/mv "$output_dir/AwakeEye.app" "$previous_export/AwakeEye.app"
 fi
-/usr/bin/ditto "$build_dir/Build/Products/Release/CoffeeBull.app" "$output_dir/CoffeeBull.app"
-/usr/bin/install -m 755 "$build_dir/helper/CoffeeBullHelper" "$output_dir/CoffeeBull.app/Contents/Resources/CoffeeBullHelper"
-/usr/bin/codesign --force --options runtime --sign - "$output_dir/CoffeeBull.app/Contents/Library/LoginItems/KeepingYouAwake Launcher.app"
-/usr/bin/codesign --force --options runtime --sign - "$output_dir/CoffeeBull.app"
-embedded_digest="$(/usr/bin/shasum -a 256 "$output_dir/CoffeeBull.app/Contents/Resources/CoffeeBullHelper" | /usr/bin/awk '{print $1}')"
+/usr/bin/ditto "$build_dir/Build/Products/Release/AwakeEye.app" "$output_dir/AwakeEye.app"
+/usr/bin/install -m 755 "$build_dir/helper/CoffeeBullHelper" "$output_dir/AwakeEye.app/Contents/Resources/CoffeeBullHelper"
+/usr/bin/codesign --force --options runtime --sign - "$output_dir/AwakeEye.app/Contents/Library/LoginItems/KeepingYouAwake Launcher.app"
+/usr/bin/codesign --force --options runtime --sign - "$output_dir/AwakeEye.app"
+embedded_digest="$(/usr/bin/shasum -a 256 "$output_dir/AwakeEye.app/Contents/Resources/CoffeeBullHelper" | /usr/bin/awk '{print $1}')"
 [[ "$embedded_digest" == "$helper_digest" ]] || { printf 'Embedded helper changed during signing.\n' >&2; exit 1; }
-/usr/bin/codesign --verify --deep --strict "$output_dir/CoffeeBull.app"
-printf 'Built %s\n' "$output_dir/CoffeeBull.app"
+/usr/bin/codesign --verify --deep --strict "$output_dir/AwakeEye.app"
+printf 'Built %s\n' "$output_dir/AwakeEye.app"

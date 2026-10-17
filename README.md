@@ -1,77 +1,61 @@
-# CoffeeBull
+# AwakeEye
 
-A personal fork of [KeepingYouAwake](https://github.com/newmarcel/KeepingYouAwake), with two menu-bar wake modes.
+A macOS menu-bar app with two wake modes and an eye icon that shows the current state. Forked from [KeepingYouAwake](https://github.com/newmarcel/KeepingYouAwake).
 
 | Mode | Behavior |
 | --- | --- |
-| **Coffee ☕** | Keeps the Mac awake during inactivity using `caffeinate`; uses the existing display and duration preferences. |
+| **Coffee ☕** | Keeps the Mac awake during inactivity using `caffeinate`; follows the display and duration preferences. |
 | **Red Bull ⚡** | Also disables system sleep, including lid-close and manual Sleep, on both charger and battery. Requires one-time native macOS administrator setup; routine toggles do not prompt. |
 
-Right-click the menu-bar icon to select a mode. Selecting a mode starts it; left-click the icon to stop or restart it. Red Bull is temporary: stopping, switching to Coffee, reaching the selected duration, or quitting ends the override. A constrained helper also restores normal sleep if the app crashes or the helper restarts. Every launch defaults to Coffee.
+Right-click the menu-bar eye to select a mode. Selecting a mode starts it; left-click the eye to stop or restart it. The eye is crossed out when inactive, open in Coffee, and badged in Red Bull. Every launch starts in Coffee.
 
-Red Bull takes ownership of the global sleep setting and resets it to normal on cleanup. **Coffee leaves any pre-existing global sleep override in place.** If sleep was already disabled using `pmset`, stop a Red Bull session or run `sudo pmset -a disablesleep 0` to restore normal sleep. Keep an awake, closed Mac ventilated; battery drain continues.
+Red Bull ends when you stop it, switch to Coffee, reach the selected duration, or quit. Its helper also restores normal sleep after an app crash or helper restart. Keep a running, closed Mac ventilated; battery drain continues.
 
-The fork uses the app name **CoffeeBull**, bundle ID `app.byrvr.CoffeeBull`, an Awake Eye icon, and URL scheme `coffeebull://`. Upstream automatic updates are disabled. The original KeepingYouAwake installation and preferences are separate.
+## Download and install
 
-The first Red Bull activation installs a root-owned, sleep-only helper after macOS administrator approval. The helper authenticates this exact signed app build and accepts only on, off, and status requests. No password is stored and no sudo rule is added. Approval survives app restarts; rebuilding/updating this locally signed app may require one setup approval again.
+Download **AwakeEye-0.3.0-macos-arm64.zip** from the [latest release](https://github.com/byrvr/AwakeEye/releases/latest). This release is for **Apple Silicon Macs running macOS 12 or newer**; an Intel download is not currently provided.
 
-## Build a personal copy
+1. Quit an existing CoffeeBull installation, if present.
+2. Unzip the download and move **AwakeEye.app** to **/Applications**.
+3. Open AwakeEye, then select a wake mode from the menu-bar eye. Red Bull needs its one-time macOS administrator approval to install the sleep helper.
+
+The download is ad-hoc signed. It is not Developer ID signed or notarized, so macOS may block its first launch. If you trust the downloaded release, follow Apple's [instructions for opening an app from an unidentified developer](https://support.apple.com/102445). The release includes `SHA256SUMS` to check the downloaded archive.
+
+Regular Red Bull toggles and app restarts do not need a password. Updating this locally signed app may require one new setup approval. The helper accepts only on, off, and status requests from the authorized app build; it stores no password and adds no sudo rule.
+
+AwakeEye preserves CoffeeBull's bundle ID, preferences, and helper identifiers so existing installations can migrate. The old CoffeeBull app should stay closed while using AwakeEye. Upstream automatic updates are disabled.
+
+## Build a copy
 
 Requires Xcode and its command-line tools. From the repository root:
 
 ```sh
 ./scripts/build-local.sh
-open dist/CoffeeBull.app
+open dist/AwakeEye.app
 ```
 
-This creates a locally signed development app. It is not Developer ID signed or notarized. Red Bull requires a build outside the App Sandbox; the personal fork's entitlements reflect that requirement.
+Install `AwakeEye.app` at `/Applications/AwakeEye.app` before enabling Red Bull. To create the release archive and checksums:
 
-Install the resulting `CoffeeBull.app` in `/Applications` before enabling Red Bull; its one-time helper setup requires that location.
+```sh
+./scripts/package-release.sh
+```
 
-See the [documentation map](docs/INDEX.md) for lifecycle details, validation, and recovery. The original project's background and attribution follow.
+See the [documentation map](docs/INDEX.md) for architecture, validation, packaging, and sleep recovery. The app supports `awakeeye://` URLs and retains `coffeebull://` compatibility.
 
-## Upstream: KeepingYouAwake
+## Sleep recovery
 
-KeepingYouAwake is a small menu bar utility for macOS *(Version 10.13 and newer)* that can prevent your Mac from entering sleep mode for a predefined duration or as long as it is activated.
+Coffee leaves an externally established global sleep override in place. Red Bull takes ownership of that setting and restores normal sleep when its session ends. To restore normal sleep manually:
 
-https://keepingyouawake.app/
+```sh
+sudo pmset -a disablesleep 0
+```
 
-### Upstream installation
+See [build and recovery](docs/operations/build-and-recovery.md) for helper removal and troubleshooting.
 
-**[Download the latest version here.](https://github.com/newmarcel/KeepingYouAwake/releases/latest)**
+## Attribution and license
 
-or install it via [cask](http://caskroom.github.io/): `brew install --cask keepingyouawake`.
+AwakeEye is a fork of Marcel Dierkes's [KeepingYouAwake](https://github.com/newmarcel/KeepingYouAwake), which was inspired by Lighthead Software's Caffeine and uses Apple's `caffeinate` utility. The original project remains available at [keepingyouawake.app](https://keepingyouawake.app/).
 
-<img src="./Extras/Screenshot@2x.jpg" width="500" />
+Development of this fork takes place at [byrvr/AwakeEye](https://github.com/byrvr/AwakeEye). For contributions to the original project, read its [contribution guidelines](CONTRIBUTING.md).
 
-## How does it work?
-
-The app is a small wrapper around Apple's `caffeinate` command line utility. All current versions of macOS ship with this tool by default. You can read the manual page [here](https://web.archive.org/web/20140604153141/https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man8/caffeinate.8.html).
-
-### Does upstream KeepingYouAwake work on a MacBook with a closed lid?
-
-Upstream does not. This fork adds closed-lid support through the separately authorized Red Bull mode described above.
-
-## Is this dangerous?
-
-This utility will not harm your Mac because it is based on an official command line tool by Apple. **BUT** I cannot guarantee anything, so use this tool **AT YOUR OWN RISK**.
-
-## Inspired by Caffeine
-
-*KeepingYouAwake* is inspired by *[Caffeine](https://web.archive.org/web/20240625031548/https://www.lightheadsw.com/caffeine/)* from *Lighthead Software*. I used it for many years, but sadly it hasn't been updated in a while. Eventually in 2014 I decided to build a replacement for myself that was optimized for macOS Yosemite and used the [`caffeinate`](https://web.archive.org/web/20140604153141/https://developer.apple.com/library/mac/documentation/Darwin/Reference/ManPages/man8/caffeinate.8.html) command line tool under the hood.
-
-## Still using old macOS versions?
-
-- [Version 1.6.8](https://github.com/newmarcel/KeepingYouAwake/releases/tag/1.6.8) is the last release that supports macOS Big Sur and older (11.0, 10.15, 10.14, 10.13)
-- [Version 1.6.2](https://github.com/newmarcel/KeepingYouAwake/releases/tag/1.6.2) is the last release that supports macOS Sierra (10.12)
-- [Version 1.5.2](https://github.com/newmarcel/KeepingYouAwake/releases/tag/1.5.2) is the last release that supports macOS Yosemite (10.10) and El Capitan (10.11)
-
-## Upstream contribution guidelines
-
-For contributions to the original project, read its [Contribution Guidelines](./CONTRIBUTING.md). Development of this personal fork stays in `byrvr/KeepingYouAwake`.
-
-## License
-
-Everything in this project is licensed under the [MIT license](http://opensource.org/licenses/MIT). Provided image assets are also covered by this license.
-
-*Although it's not required please do not redistribute forked versions of the app with the same name and icon. Thanks!*
+The project and its provided image assets use the [MIT license](LICENSE), retaining the original copyright and license notice.

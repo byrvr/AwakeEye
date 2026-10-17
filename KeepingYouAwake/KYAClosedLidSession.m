@@ -99,7 +99,7 @@ static NSString *KYACurrentCodeHash(void)
     int descriptor = socket(AF_UNIX, SOCK_STREAM, 0);
     if(descriptor < 0)
     {
-        if(error) { *error = KYAHelperMakeError(KYAHelperUnavailable, @"CoffeeBull's sleep helper is not available."); }
+        if(error) { *error = KYAHelperMakeError(KYAHelperUnavailable, @"AwakeEye's sleep helper is not available."); }
         return nil;
     }
     struct timeval timeout = {(time_t)seconds, (suseconds_t)((seconds - floor(seconds)) * 1000000)};
@@ -126,7 +126,7 @@ static NSString *KYACurrentCodeHash(void)
     {
         close(descriptor);
         KYAHelperError code = (connectionError == ENOENT || connectionError == ECONNREFUSED) ? KYAHelperUnavailable : KYAHelperOperationFailed;
-        if(error) { *error = KYAHelperMakeError(code, code == KYAHelperUnavailable ? @"CoffeeBull needs its one-time sleep helper setup." : @"The sleep helper connection timed out. Try again."); }
+        if(error) { *error = KYAHelperMakeError(code, code == KYAHelperUnavailable ? @"AwakeEye needs its one-time sleep helper setup." : @"The sleep helper connection timed out. Try again."); }
         return nil;
     }
     uid_t peerUID;
@@ -201,12 +201,12 @@ static NSString *KYACurrentCodeHash(void)
     NSString *helper = [NSBundle.mainBundle pathForResource:@"CoffeeBullHelper" ofType:nil];
     if(codeHash.length != 40 || COFFEEBULL_HELPER_SHA256.length != 64 || helper == nil)
     {
-        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"This build is missing its signed sleep helper. Build CoffeeBull with scripts/build-local.sh."); }
+        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"This build is missing its signed sleep helper. Build AwakeEye with scripts/build-local.sh."); }
         return NO;
     }
-    if(![NSBundle.mainBundle.bundlePath isEqual:@"/Applications/CoffeeBull.app"])
+    if(![NSBundle.mainBundle.bundlePath isEqual:@"/Applications/AwakeEye.app"])
     {
-        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"Install CoffeeBull in Applications before setting up Red Bull."); }
+        if(error) { *error = KYAHelperMakeError(KYAHelperSetupFailed, @"Install AwakeEye in Applications before setting up Red Bull."); }
         return NO;
     }
     NSDictionary *definition = @{
@@ -315,7 +315,7 @@ static NSString *KYACurrentCodeHash(void)
     NSDictionary *response = [self request:@"OFF" error:&error];
     if(response == nil || [response[@"active"] boolValue])
     {
-        self.lastCleanupError = error ?: KYAHelperMakeError(KYAHelperOperationFailed, @"Normal sleep could not be restored. Quit CoffeeBull to release its helper lease, or run sudo pmset -a disablesleep 0 in Terminal.");
+        self.lastCleanupError = error ?: KYAHelperMakeError(KYAHelperOperationFailed, @"Normal sleep could not be restored. Quit AwakeEye to release its helper lease, or run sudo pmset -a disablesleep 0 in Terminal.");
         return;
     }
     self.ownsSession = NO;

@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>CoffeeBull</string>
+	<string>AwakeEye</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleURLTypes</key>
@@ -14,9 +14,10 @@
 			<key>CFBundleTypeRole</key>
 			<string>Editor</string>
 			<key>CFBundleURLName</key>
-			<string>CoffeeBull</string>
+			<string>AwakeEye</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
+				<string>awakeeye</string>
 				<string>coffeebull</string>
 			</array>
 		</dict>

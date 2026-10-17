@@ -194,7 +194,7 @@
 		DA52B1072617021500D09FE5 /* KYAActivationUserNotification.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAActivationUserNotification.h; sourceTree = "<group>"; };
 		DA5680192115FF140039C979 /* KYAUpdateSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAUpdateSettingsViewController.m; sourceTree = "<group>"; };
 		DA56801A2115FF140039C979 /* KYAUpdateSettingsViewController.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAUpdateSettingsViewController.h; sourceTree = "<group>"; };
-		DA637B3919F14693004C8838 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeBull.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DA637B3919F14693004C8838 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AwakeEye.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA637B3D19F14693004C8838 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		DA637B3E19F14693004C8838 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		DA637B4019F14693004C8838 /* KYAAppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = KYAAppDelegate.h; sourceTree = "<group>"; };
@@ -235,7 +235,7 @@
 		DAB1286B1C24540200831045 /* KYAAboutSettingsViewController.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAAboutSettingsViewController.m; sourceTree = "<group>"; };
 		DAB128741C2493DB00831045 /* KYAUserDefaultsSetting.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAUserDefaultsSetting.h; sourceTree = "<group>"; };
 		DAB128751C2493DB00831045 /* KYAUserDefaultsSetting.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAUserDefaultsSetting.m; sourceTree = "<group>"; };
-		DAD3CF8F271186720006CA14 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoffeeBull.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		DAD3CF8F271186720006CA14 /* KeepingYouAwake.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = AwakeEye.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DAD68A7B27C957B30036ED19 /* MainMenu.xib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = file.xib; path = MainMenu.xib; sourceTree = "<group>"; };
 		DAD68A7F27C957E20036ED19 /* KYAMainMenu.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KYAMainMenu.h; sourceTree = "<group>"; };
 		DAD68A8027C957E20036ED19 /* KYAMainMenu.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = KYAMainMenu.m; sourceTree = "<group>"; };
@@ -1162,7 +1162,7 @@
 					"@executable_path/../Frameworks",
 				);
 				LOCALIZATION_EXPORT_SUPPORTED = NO;
-				PRODUCT_NAME = CoffeeBull;
+				PRODUCT_NAME = AwakeEye;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};
@@ -1191,7 +1191,7 @@
 				);
 				LOCALIZATION_EXPORT_SUPPORTED = NO;
 				OTHER_CODE_SIGN_FLAGS = "$(inherited) --timestamp";
-				PRODUCT_NAME = CoffeeBull;
+				PRODUCT_NAME = AwakeEye;
 				PROVISIONING_PROFILE_SPECIFIER = "";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 			};

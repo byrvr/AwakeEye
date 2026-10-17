@@ -3,7 +3,7 @@ title: Wake modes and cleanup
 status: current
 language: en
 owner: byrvr
-last-updated: 2026-10-13
+last-updated: 2026-10-17
 audience: both
 scope: system
 related:
@@ -12,7 +12,9 @@ related:
 
 # Wake modes and cleanup
 
-[KYAAppController](../../KeepingYouAwake/KYAAppController/KYAAppController.m) owns Coffee or Red Bull and the current timer. Launch starts in Coffee; mode switches preserve the current absolute deadline, including authorization time. Awake Eye stays a consistent menu-bar identity: crossed-out when inactive, open in Coffee, badge in Red Bull.
+[KYAAppController](../../KeepingYouAwake/KYAAppController/KYAAppController.m) owns Coffee or Red Bull and the current timer. Launch starts in Coffee; mode switches preserve the current absolute deadline, including authorization time. AwakeEye's menu-bar eye is crossed out when inactive, open in Coffee, and badged in Red Bull.
+
+AwakeEye retains the `app.byrvr.CoffeeBull` bundle ID, preference keys, `CoffeeBullHelper` resource name, and installed helper identifiers to preserve compatibility with CoffeeBull 0.2.0. The public app name and installed path are `AwakeEye` and `/Applications/AwakeEye.app`. Both `awakeeye://` and the legacy `coffeebull://` URL schemes are registered; actions include `coffee`, `redbull`, `activate`, `deactivate`, and `toggle`.
 
 Coffee uses the upstream `caffeinate` timer. Red Bull uses [KYAClosedLidSession](../../KeepingYouAwake/KYAClosedLidSession.m) to communicate with the installed [CoffeeBullHelper](../../Helper/CoffeeBullHelper.m) over a local Unix socket. The first activation performs native administrator setup. Later activations use fixed ON/OFF/STATUS requests without authentication prompts.
 
