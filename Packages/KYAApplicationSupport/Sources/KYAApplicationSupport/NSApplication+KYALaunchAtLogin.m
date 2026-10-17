@@ -102,8 +102,8 @@ NS_INLINE void KYALaunchAtLoginAppServiceSetEnabled(BOOL enabled) API_AVAILABLE(
 
 #pragma mark - User Default (Legacy)
 
-static NSString * const KYALauncherBundleIdentifier = @"info.marcel-dierkes.KeepingYouAwake.Launcher";
-static NSString * const KYALauncherStateUserDefaultsKey = @"info.marcel-dierkes.KeepingYouAwake.LaunchAtLogin";
+static NSString * const KYALauncherBundleIdentifier = @"app.byrvr.CoffeeBull.Launcher";
+static NSString * const KYALauncherStateUserDefaultsKey = @"app.byrvr.CoffeeBull.LaunchAtLogin";
 
 NS_INLINE BOOL KYALaunchAtLoginUserDefaultExists()
 {

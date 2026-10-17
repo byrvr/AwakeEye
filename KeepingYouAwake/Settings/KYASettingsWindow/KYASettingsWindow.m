@@ -55,7 +55,7 @@
     {
         self.styleMask = styleMask;
         self.collectionBehavior = behavior;
-        self.title = KYA_SETTINGS_L10N_TITLE;
+        self.title = @"AwakeEye — Settings";
         
         [self setFrame:frame display:NO];
         self.frameAutosaveName = @"PreferencesWindow";

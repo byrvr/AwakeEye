@@ -15,7 +15,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "DAD3CF56271186720006CA14"
-               BuildableName = "KeepingYouAwake.app"
+               BuildableName = "CoffeeBull.app"
                BlueprintName = "KeepingYouAwake (Direct)"
                ReferencedContainer = "container:KeepingYouAwake.xcodeproj">
             </BuildableReference>
@@ -45,7 +45,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DAD3CF56271186720006CA14"
-            BuildableName = "KeepingYouAwake.app"
+            BuildableName = "CoffeeBull.app"
             BlueprintName = "KeepingYouAwake (Direct)"
             ReferencedContainer = "container:KeepingYouAwake.xcodeproj">
          </BuildableReference>
@@ -62,7 +62,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "DAD3CF56271186720006CA14"
-            BuildableName = "KeepingYouAwake.app"
+            BuildableName = "CoffeeBull.app"
             BlueprintName = "KeepingYouAwake (Direct)"
             ReferencedContainer = "container:KeepingYouAwake.xcodeproj">
          </BuildableReference>

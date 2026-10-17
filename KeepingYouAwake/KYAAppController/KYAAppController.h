@@ -15,6 +15,12 @@
 
 NS_ASSUME_NONNULL_BEGIN
 
+typedef NS_ENUM(NSUInteger, KYAWakeMode)
+{
+    KYAWakeModeCoffee = 0,
+    KYAWakeModeRedBull
+};
+
 @interface KYAAppController : NSObject
 
 /// The associated KYASleepWakeTimer instance of this app controller.
@@ -22,6 +28,12 @@ NS_ASSUME_NONNULL_BEGIN
 
 /// Controls the display a action handling for the status bar item.
 @property (nonatomic, readonly) KYAStatusItemController *statusItemController;
+
+/// The mode selected for the next activation. A selection does not imply activation.
+@property (nonatomic, readonly) KYAWakeMode wakeMode;
+
+- (IBAction)selectCoffeeMode:(id)sender;
+- (IBAction)selectRedBullMode:(id)sender;
 
 @end
 

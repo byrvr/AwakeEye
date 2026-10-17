@@ -58,7 +58,7 @@
     AutoVar settingsWindow = self.settingsWindow;
     if(settingsWindow == nil)
     {
-        NSArray<NSTabViewItem *> *additionalTabViewItems;
+        NSArray<NSTabViewItem *> *additionalTabViewItems = nil;
 #if KYA_APP_UPDATER_ENABLED
         additionalTabViewItems = @[KYAUpdateSettingsViewController.preferredTabViewItem];
 #endif
